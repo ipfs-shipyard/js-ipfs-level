@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "abstract-leveldown": "^2.6.1",
+    "async": "^2.4.1",
     "deep-assign": "^2.0.0",
     "ipfs": "^0.23.1"
   }

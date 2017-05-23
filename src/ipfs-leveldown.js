@@ -3,8 +3,10 @@
 const AbstractLeveldown = require('abstract-leveldown').AbstractLevelDOWN
 const merge = require('deep-assign')
 const IPFS = require('ipfs')
+const waterfall = require('async/waterfall')
 const defaultOptions = require('./default-options')
-const encodeKV = require('./encode-kv')
+const encode = require('./encode')
+const Heads = require('./heads')
 
 const OPTIONS = {
   dag: {
@@ -30,6 +32,7 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
     }
 
     super(partition)
+    this._heads = Heads(partition)
     this._options = options
     this._partition = partition
   }
@@ -51,13 +54,47 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
   }
 
   _put (key, value, options, callback) {
-    this._ipfs.dag.put(encodeKV(key, value, options), OPTIONS.dag.put, (err, cid) => {
-      if (err) {
-        callback(err)
-        return // early
-      }
-      // TODO: store key => cid
-      callback()
-    })
+    waterfall(
+      [
+        (callback) => this._ipfs.dag.put(encode.kv(key, value, options), OPTIONS.dag.put, callback),
+        (cid, callback) => this._heads.set(key, cid, callback)
+      ],
+      callback)
+  }
+
+  _get (key, options, callback) {
+    waterfall(
+      [
+        (callback) => this._heads.get(key, callback),
+        (cid, callback) => {
+          if (!cid) {
+            callback(new Error('NotFound'))
+          } else {
+            callback(null, cid)
+          }
+        },
+        (cid, callback) => this._ipfs.dag.get(cid, callback),
+        (result, callback) => callback(null, result.value),
+        (value, callback) => {
+          console.log('GOT', value)
+          if (value && value.key !== key) {
+            callback(new Error('expected key to be ' + key + ' and got ' + value.key))
+          } else if (!value || value.deleted) {
+            callback(new Error('NotFound'))
+          } else {
+            callback(null, value.value)
+          }
+        }
+      ],
+      callback)
+  }
+
+  _del (key, options, callback) {
+    waterfall(
+      [
+        (callback) => this._ipfs.dag.put(encode.deleted(key), OPTIONS.dag.put, callback),
+        (cid, callback) => this._heads.set(key, cid, callback)
+      ],
+      callback)
   }
 }
