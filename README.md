@@ -22,7 +22,7 @@ Returns a new IPFSLevel instance. This object obeys the LevelDown interface.
 
 Arguments:
 
-* `options` (object):
+* `options` (object, defaults to [this](src/default-options.js)): with the following keys:
   * `ipfsOptions` (object). [IPFS options object](https://github.com/ipfs/js-ipfs#advanced-options-when-creating-an-ipfs-node).
 
 # License
