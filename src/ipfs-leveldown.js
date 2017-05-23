@@ -4,6 +4,7 @@ const AbstractLeveldown = require('abstract-leveldown').AbstractLevelDOWN
 const merge = require('deep-assign')
 const IPFS = require('ipfs')
 const waterfall = require('async/waterfall')
+const eachSeries = require('async/eachSeries')
 const defaultOptions = require('./default-options')
 const encode = require('./encode')
 const Heads = require('./heads')
@@ -76,7 +77,6 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
         (cid, callback) => this._ipfs.dag.get(cid, callback),
         (result, callback) => callback(null, result.value),
         (value, callback) => {
-          console.log('GOT', value)
           if (value && value.key !== key) {
             callback(new Error('expected key to be ' + key + ' and got ' + value.key))
           } else if (!value || value.deleted) {
@@ -95,6 +95,21 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
         (callback) => this._ipfs.dag.put(encode.deleted(key), OPTIONS.dag.put, callback),
         (cid, callback) => this._heads.set(key, cid, callback)
       ],
+      callback)
+  }
+
+  _batch (array, options, callback) {
+    eachSeries(
+      array,
+      (op, callback) => {
+        if (op.type === 'put') {
+          this.put(op.key, op.value, callback)
+        } else if (op.type === 'del') {
+          this.del(op.key, callback)
+        } else {
+          callback(new Error('invalid operation type:' + op.type))
+        }
+      },
       callback)
   }
 }

@@ -45,6 +45,29 @@ describe('leveldown interface', () => {
     })
   })
 
+  it('allows batch ops', (done) => {
+    db.batch(
+      [
+        { type: 'put', key: 'key 1', value: 'value 1' },
+        { type: 'put', key: 'key 2', value: 'value 2' },
+        { type: 'del', key: 'key 1' }
+      ],
+      done)
+  })
+
+  it('batch worked', (done) => {
+    db.get('key 2', (err, result) => {
+      expect(err).to.not.exist()
+      expect(result).to.equal('value 2')
+
+      db.get('key 1', (err) => {
+        expect(err).to.exist()
+        expect(err.message).to.equal('NotFound')
+        done()
+      })
+    })
+  })
+
   it('can be closed', (done) => {
     db.close(done)
   })
