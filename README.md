@@ -24,6 +24,8 @@ Arguments:
 
 * `options` (object, defaults to [this](src/default-options.js)): with the following keys:
   * `ipfsOptions` (object). [IPFS options object](https://github.com/ipfs/js-ipfs#advanced-options-when-creating-an-ipfs-node).
+  * `heads` (LevelDown-compatible database that stores the heads)
+
 
 # License
 

@@ -5,15 +5,19 @@ const chai = require('chai')
 chai.use(require('dirty-chai'))
 const expect = chai.expect
 
+const Memdown = require('memdown')
 const IPFSLevel = require('../')
 
-const PARTITION = 'test'
+const PARTITION = 'leveldown-test'
 
 describe('leveldown interface', () => {
   let db
+  const options = {
+    heads: Memdown(PARTITION)
+  }
 
   it('can create leveldown object', (done) => {
-    db = IPFSLevel(PARTITION)
+    db = IPFSLevel(PARTITION, options)
     done()
   })
 

@@ -7,7 +7,7 @@ const waterfall = require('async/waterfall')
 const eachSeries = require('async/eachSeries')
 const defaultOptions = require('./default-options')
 const encode = require('./encode')
-const Heads = require('./heads')
+const Iterator = require('./iterator')
 
 const OPTIONS = {
   dag: {
@@ -32,8 +32,13 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
       throw new Error('need a partition to be defined')
     }
 
+    const heads = options.heads
+    if (!heads) {
+      throw new Error('need a heads database')
+    }
+
     super(partition)
-    this._heads = Heads(partition)
+    this._heads = heads
     this._options = options
     this._partition = partition
   }
@@ -58,7 +63,7 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
     waterfall(
       [
         (callback) => this._ipfs.dag.put(encode.kv(key, value, options), OPTIONS.dag.put, callback),
-        (cid, callback) => this._heads.set(key, cid, callback)
+        (cid, callback) => this._heads.put(key, cid.toBaseEncodedString(), callback)
       ],
       callback)
   }
@@ -66,7 +71,7 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
   _get (key, options, callback) {
     waterfall(
       [
-        (callback) => this._heads.get(key, callback),
+        (callback) => this._heads.get(key, { asBuffer: false }, callback),
         (cid, callback) => {
           if (!cid) {
             callback(new Error('NotFound'))
@@ -90,12 +95,7 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
   }
 
   _del (key, options, callback) {
-    waterfall(
-      [
-        (callback) => this._ipfs.dag.put(encode.deleted(key), OPTIONS.dag.put, callback),
-        (cid, callback) => this._heads.set(key, cid, callback)
-      ],
-      callback)
+    this._heads.del(key, callback)
   }
 
   _batch (array, options, callback) {
@@ -111,5 +111,9 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
         }
       },
       callback)
+  }
+
+  _iterator (options) {
+    return new Iterator(this, this._ipfs, this._heads, options)
   }
 }
