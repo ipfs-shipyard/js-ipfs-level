@@ -16,6 +16,9 @@ describe('leveldown interface', () => {
     heads: Memdown(PARTITION)
   }
 
+  after((done) => setTimeout(done, 4000))
+  after((done) => db.close(done))
+
   it('can create leveldown object', (done) => {
     db = IPFSLevel(PARTITION, options)
     done()
@@ -70,9 +73,5 @@ describe('leveldown interface', () => {
         done()
       })
     })
-  })
-
-  it('can be closed', (done) => {
-    db.close(done)
   })
 })
