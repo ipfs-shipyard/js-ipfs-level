@@ -27,6 +27,7 @@
   "devDependencies": {
     "chai": "^3.5.0",
     "dirty-chai": "^1.2.2",
+    "memdown": "^1.2.4",
     "mocha": "^3.4.1",
     "standard": "^10.0.2"
   },
