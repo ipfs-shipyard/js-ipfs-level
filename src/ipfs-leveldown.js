@@ -4,6 +4,15 @@ const AbstractLeveldown = require('abstract-leveldown').AbstractLevelDOWN
 const merge = require('deep-assign')
 const IPFS = require('ipfs')
 const defaultOptions = require('./default-options')
+const encodeKV = require('./encode-kv')
+
+const OPTIONS = {
+  dag: {
+    put: {
+      format: 'dag-cbor'
+    }
+  }
+}
 
 module.exports = class IPFSLeveldown extends AbstractLeveldown {
   constructor (partition, _options) {
@@ -42,6 +51,13 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
   }
 
   _put (key, value, options, callback) {
-
+    this._ipfs.dag.put(encodeKV(key, value, options), OPTIONS.dag.put, (err, cid) => {
+      if (err) {
+        callback(err)
+        return // early
+      }
+      // TODO: store key => cid
+      callback()
+    })
   }
 }

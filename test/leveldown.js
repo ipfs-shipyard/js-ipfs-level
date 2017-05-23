@@ -21,6 +21,10 @@ describe('leveldown interface', () => {
     db.open(done)
   })
 
+  it('can put a value', (done) => {
+    db.put('key', 'value', done)
+  })
+
   it('can be closed', (done) => {
     db.close(done)
   })
