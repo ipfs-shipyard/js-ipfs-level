@@ -1,0 +1,38 @@
+{
+  "name": "ipfs-level",
+  "version": "0.0.1",
+  "description": "Leveldown over IPFS",
+  "main": "src/index.js",
+  "scripts": {
+    "lint": "standard",
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pgte/ipfs-level.git"
+  },
+  "keywords": [
+    "ipfs",
+    "leveldb",
+    "leveldown",
+    "level",
+    "p2p"
+  ],
+  "author": "Pedro Teixeira <i@pgte.me>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pgte/ipfs-level/issues"
+  },
+  "homepage": "https://github.com/pgte/ipfs-level#readme",
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "dirty-chai": "^1.2.2",
+    "mocha": "^3.4.1",
+    "standard": "^10.0.2"
+  },
+  "dependencies": {
+    "abstract-leveldown": "^2.6.1",
+    "deep-assign": "^2.0.0",
+    "ipfs": "^0.23.1"
+  }
+}
