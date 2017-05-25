@@ -5,6 +5,7 @@ const merge = require('deep-assign')
 const IPFS = require('ipfs')
 const waterfall = require('async/waterfall')
 const eachSeries = require('async/eachSeries')
+const series = require('async/series')
 const defaultOptions = require('./default-options')
 const encode = require('./encode')
 const Iterator = require('./iterator')
@@ -51,6 +52,8 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
           _callback(err)
         } else {
           this._log = new Log(peerInfo.id, this._logDB, this._partition, this._ipfs)
+          // TODO: handle the error properly
+          this._log.on('error', (err) => { throw err })
           _callback()
         }
       })
@@ -68,7 +71,21 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
   }
 
   _close (callback) {
-    this._ipfs.stop(callback)
+    series([
+      (callback) => {
+        if (this._ipfs && this._ipfs.isOnline()) {
+          this._ipfs.stop(callback)
+        } else {
+          callback()
+        }
+      },
+      (callback) => {
+        if (this._log) {
+          this._log.stop()
+        }
+        callback()
+      }
+    ], callback)
   }
 
   _put (key, value, options, callback) {

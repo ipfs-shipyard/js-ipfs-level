@@ -19,7 +19,7 @@ When a node does a `db.put(key, value, callback)`, this is what happens inside t
 * The node saves the log entry into the log using a key derived from the kv-doc key. This way it's easy to retrieve the latest log entry for a given value.
 * The node saves the log entry under the key `HEAD`, to be able to later retrieve it
 
-* Remote update
+# Remote update
 
 When a node gets a remote log update, the message contains the latest log entry (the remote HEAD), which contains:
   * `parent`: the remote parent log entre

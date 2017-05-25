@@ -29,12 +29,15 @@
     "dirty-chai": "^1.2.2",
     "memdown": "^1.2.4",
     "mocha": "^3.4.1",
+    "rimraf": "^2.6.1",
     "standard": "^10.0.2"
   },
   "dependencies": {
     "abstract-leveldown": "^2.6.1",
     "async": "^2.4.1",
+    "backoff": "^2.5.0",
     "deep-assign": "^2.0.0",
+    "hyperdiff": "^2.0.2",
     "ipfs": "^0.23.1",
     "vectorclock": "0.0.0"
   }
