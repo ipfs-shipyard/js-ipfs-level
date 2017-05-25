@@ -18,7 +18,7 @@ const IPFSLevel = require('ipfs-level')
 
 ## IPFSLevel(partition[, options])
 
-Returns a new IPFSLevel instance. This object obeys the LevelDown interface.
+Returns a new IPFSLevel instance. This object obeys [the LevelDown interface](https://github.com/level/leveldown).
 
 Arguments:
 
