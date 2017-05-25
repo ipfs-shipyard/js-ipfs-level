@@ -8,26 +8,35 @@ const MANDATORY_OPTIONS = {
 }
 
 module.exports = class Iterator extends AbstractIterator {
-  constructor (db, ipfs, heads, _options) {
+  constructor (db, ipfs, log, _options) {
     super(db)
     const options = merge({}, _options || {}, MANDATORY_OPTIONS)
-    this._iterator = heads.iterator(options)
+    this._iterator = log.iterator(options)
     this._ipfs = ipfs
   }
 
   _next (callback) {
-    this._iterator.next((err, key, value) => {
+    this._iterator.next((err, _key, _value) => {
       if (err) {
         callback(err)
         return // early
       }
 
-      if (!key) {
+      if (!_key) {
         callback()
         return // early
       }
 
-      this._ipfs.dag.get(value, (err, result) => {
+      // skip this one if it's not a key
+      // TODO: patch the option limits to only get relevant keys
+      if (_key.indexOf('key:') !== 0) {
+        this._next(callback)
+        return // early
+      }
+      const key = _key.substring(4)
+      const value = JSON.parse(_value)
+
+      this._ipfs.dag.get(value.cid, (err, result) => {
         if (err) {
           callback(err)
           return // early

@@ -13,7 +13,7 @@ const PARTITION = 'leveldown-test'
 describe('leveldown interface', () => {
   let db
   const options = {
-    heads: Memdown(PARTITION)
+    log: Memdown(PARTITION)
   }
 
   after((done) => setTimeout(done, 4000))

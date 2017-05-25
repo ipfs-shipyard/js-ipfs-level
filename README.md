@@ -27,6 +27,10 @@ Arguments:
   * `heads` (LevelDown-compatible database that stores the heads)
 
 
+# Internals
+
+The internals are documented [here](docs/INTERNALS.md).
+
 # License
 
 MIT

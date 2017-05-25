@@ -21,7 +21,7 @@ const fixtures = [
 describe('leveldown iterator', () => {
   let db
   const options = {
-    heads: Memdown(PARTITION)
+    log: Memdown(PARTITION)
   }
 
   before((done) => {
