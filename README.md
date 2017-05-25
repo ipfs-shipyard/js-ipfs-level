@@ -2,6 +2,8 @@
 
 > Leveldown over IPFS
 
+[![Build Status](https://travis-ci.org/pgte/ipfs-level.svg?branch=master)](https://travis-ci.org/pgte/ipfs-level)
+
 # Install
 
 ```bash
