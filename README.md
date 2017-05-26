@@ -18,16 +18,16 @@ const IPFSLevel = require('ipfs-level')
 
 # API
 
-## IPFSLevel(partition[, options])
+## IPFSLevel(partition, options)
 
 Returns a new IPFSLevel instance. This object obeys [the LevelDown interface](https://github.com/level/leveldown).
 
 Arguments:
 
 * `options` (object, defaults to [this](src/default-options.js)): with the following keys:
-  * `ipfsOptions` (object). [IPFS options object](https://github.com/ipfs/js-ipfs#advanced-options-when-creating-an-ipfs-node).
-  * `heads` (LevelDown-compatible database that stores the heads)
-
+  * `ipfsOptions` (object, optional). [IPFS options object](https://github.com/ipfs/js-ipfs#advanced-options-when-creating-an-ipfs-node).
+  * `heads` (LevelDown-compatible database that stores the heads, mandatory)
+  * `ipfs` (IPFS instance, optional). If not supplied, ipfs-level creates a new IPFS node.
 
 # License
 
