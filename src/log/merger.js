@@ -218,7 +218,7 @@ module.exports = class Merger {
           return // early
         }
 
-        const parents = [results.remote.cid, results.local.cid].sort()
+        const parents = [results.remote.cid, results.local.cid].filter(Boolean).sort()
 
         const mergeHead = {
           parents: parents,
