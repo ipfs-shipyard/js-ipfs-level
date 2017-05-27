@@ -33,6 +33,10 @@ Arguments:
 
 The internals are documented [here](docs/INTERNALS.md).
 
+# Test and debug
+
+This package uses [debug](https://github.com/visionmedia/debug#readme), so you can activate debug messages by setting the environment variable `DEBUG` to `ipfs-level:*`
+
 # License
 
 MIT

@@ -1,19 +1,20 @@
 'use strict'
 
 const EventEmitter = require('events')
-const backoff = require('backoff').exponential
+const backoff = require('backoff').fibonacci
 const debug = require('debug')('ipfs-level:sync')
 
 const Room = require('./room')
 
 const BACKOFF_OPTIONS = {
-  initialDelay: 100,
+  initialDelay: 50,
   maxDelay: 10000
 }
 
 module.exports = class Sync extends EventEmitter {
   constructor (nodeId, partition, log, ipfs) {
     super()
+
     this._nodeId = nodeId
     this._topic = '/ipfs-level/' + partition
     this._log = log
@@ -45,13 +46,12 @@ module.exports = class Sync extends EventEmitter {
   }
 
   _broadcast () {
-    debug('_broadcast')
     if (this._stopped) {
       return
     }
 
     if (this._head) {
-      debug('broadcasting head. topic = %s, head = %s', this._topic, this._head)
+      // debug('broadcasting head. topic = %s, head = %s', this._topic, this._head)
       this._ipfs.pubsub.publish(this._topic, Buffer.from(this._head), (err) => {
         if (err) {
           this.emit('error', err)
@@ -59,14 +59,13 @@ module.exports = class Sync extends EventEmitter {
         this._backoff.backoff()
       })
     } else {
-      debug('no head yet')
       this._backoff.backoff()
     }
   }
 
   _onMessage (message) {
     if (message.from !== this._nodeId) {
-      this.emit('message', message.data.toString())
+      this.emit('new head', message.data.toString())
     }
   }
 }

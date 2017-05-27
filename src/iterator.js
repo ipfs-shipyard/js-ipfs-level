@@ -24,8 +24,7 @@ module.exports = class Iterator extends AbstractIterator {
       [
         (callback) => this._iterator.next((err, key, cid) => callback(err, key, cid)),
         (_key, cid, callback) => {
-          console.log('KEY:', _key)
-          if (! _key) {
+          if (!_key) {
             done()
             return // early
           }
@@ -40,10 +39,8 @@ module.exports = class Iterator extends AbstractIterator {
 
           this._log.get('cid:' + cid, decoding((err, logEntry) => callback(err, key, logEntry)))
         },
-        (key, logEntry, callback) => {
-          console.log('LOG entry:', logEntry)
-          this._ipfs.dag.get(logEntry.cid, (err, result) => callback(err, key, result))
-        },
+        (key, logEntry, callback) =>
+          this._ipfs.dag.get(logEntry.cid, (err, result) => callback(err, key, result)),
         (key, result, callback) => callback(null, key, result && result.value.value)
       ],
       done)

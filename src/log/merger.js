@@ -16,12 +16,21 @@ module.exports = class Merger {
     this._nodeId = nodeId
     this._ipfs = ipfs
     this._log = log
+    this._headQueue = []
     this._queue = Queue(this._processRemoteHead.bind(this), 1)
   }
 
   processRemoteHead (cid, callback) {
-    debug('will process remote head %j, ...', cid)
-    this._queue.push(cid, callback)
+    if (this._headQueue.indexOf(cid) < 0) {
+      debug('will process remote head %j, ...', cid)
+      this._headQueue.push(cid)
+      this._queue.push(cid, (err) => {
+        this._headQueue.splice(this._headQueue.indexOf(cid), 1)
+        callback(err)
+      })
+    } else {
+      callback()
+    }
   }
 
   _processRemoteHead (cid, callback) {
@@ -29,6 +38,9 @@ module.exports = class Merger {
     const newLogEntries = []
 
     const ensureLogEntry = (cid, callback) => {
+      if (!cid) {
+        throw new Error('need a CID')
+      }
       this._log.get(cid, (err, entry) => {
         if (err) {
           callback(err)
@@ -38,27 +50,29 @@ module.exports = class Merger {
         debug('log entry in cache: %j', entry)
         if (!entry || entry.isNew) {
           newLogEntries.push(cid)
-          waterfall([
-            (callback) => this._ipfs.dag.get(cid, callback),
-            (logEntry) => {
-              const newEntry = Object.assign({}, logEntry.value, { isNew: true })
-              series([
-                (callback) => this._log.set(cid, newEntry, callback),
-                (callback) => {
-                  if (logEntry.value.parents) {
-                    each(
-                      logEntry.value.parents,
-                      ensureLogEntry,
-                      callback)
-                  } else {
-                    callback()
+          waterfall(
+            [
+              (callback) => this._ipfs.dag.get(cid, callback),
+              (logEntry, callback) => {
+                const newEntry = Object.assign({}, logEntry.value, { isNew: true })
+                series([
+                  (callback) => this._log.set(cid, newEntry, callback),
+                  (callback) => {
+                    if (logEntry.value.parents) {
+                      each(
+                        logEntry.value.parents,
+                        ensureLogEntry,
+                        callback)
+                    } else {
+                      callback()
+                    }
                   }
-                }
-              ], callback)
-            }
-          ], callback)
+                ], callback)
+              }
+            ],
+            callback)
         } else {
-          callback(err)
+          callback()
         }
       })
     }
@@ -73,14 +87,12 @@ module.exports = class Merger {
       debug('new log entries:', newLogEntries)
 
       if (newLogEntries.length) {
-        this._log.transaction(() => {
+        this._log.transaction((callback) => {
           series([
             (callback) => this._processNewRemoteLogEntries(cid, newLogEntries, callback),
             (callback) => this._mergeHeads(cid, callback)
           ], callback)
-        }, (err) => {
-          callback(err)
-        })
+        }, callback)
       } else {
         callback()
       }
@@ -145,6 +157,7 @@ module.exports = class Merger {
                       callback()
                       return // early
                     }
+                    debug('conflict for key %j', remoteLogEntry.key)
                     // local latest log entry is CONCURRENT to remote one
 
                     const chosenEntry = chooseOne(localLatestLogEntry, remoteLogEntry)
@@ -184,6 +197,7 @@ module.exports = class Merger {
     debug('going to determine if setting HEAD is required...', remoteHeadCID)
     parallel(
       {
+        localCID: (callback) => this._log.getLatestHeadCID(callback),
         local: (callback) => this._log.getLatestHead(callback),
         remote: (callback) => this._log.get(remoteHeadCID, callback)
       },
@@ -193,23 +207,25 @@ module.exports = class Merger {
           return // early
         }
 
-        if (results.local && vectorclock.isIdentical(results.local, results.remote)) {
-          // same head, nothing to do here
-          debug('heads %j and %j are similar', results.local, results.remote)
-          callback()
-          return
+        if (!results.localCID) {
+          this._log.setHeadCID(remoteHeadCID, callback)
+          return // early
         }
 
-        const parents = [].concat(results.local.cid).concat(results.remote.cid).sort()
+        if (results.localCID === remoteHeadCID) {
+          debug('heads %j and %j are the same')
+          callback()
+          return // early
+        }
+
+        const parents = [results.remote.cid, results.local.cid].sort()
 
         const mergeHead = {
           parents: parents,
           clock: vectorclock.merge(results.local.clock, results.remote.clock)
         }
 
-        this._log.setHead(mergeHead, (err) => {
-          callback(err)
-        })
+        this._log.setHead(mergeHead, callback)
       }
     )
   }

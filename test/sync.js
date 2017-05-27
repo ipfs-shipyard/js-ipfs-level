@@ -63,33 +63,31 @@ describe('sync', () => {
     ], done)
   })
 
-  it.only('concurrent put is replicated', (done) => {
-    series([
-      (callback) => {
-        parallel([
-          (callback) => db1.put('key 1', 'value 1', callback),
-          (callback) => db2.put('key 2', 'value 2', callback)
-        ], callback)
-      },
-      (callback) => setTimeout(callback, 6000),
-      (callback) => {
-        parallel([
-          (callback) => {
-            db2.get('key 1', (err, result) => {
-              expect(err).to.not.exist()
-              expect(result).to.equal('value 1')
-              callback()
-            })
-          },
-          (callback) => {
-            db1.get('key 2', (err, result) => {
-              expect(err).to.not.exist()
-              expect(result).to.equal('value 2')
-              callback()
-            })
-          }
-        ], callback)
-      }
-    ], done)
+  describe('concurrent put is replicated', () => {
+    before((done) => parallel([
+      (callback) => db1.put('key 1', 'value 1', callback),
+      (callback) => db2.put('key 2', 'value 2', callback)
+    ], done))
+
+    before((done) => setTimeout(done, 6000))
+
+    it('merged', (done) => {
+      parallel([
+        (callback) => {
+          db2.get('key 1', (err, result) => {
+            expect(err).to.not.exist()
+            expect(result).to.equal('value 1')
+            callback()
+          })
+        },
+        (callback) => {
+          db1.get('key 2', (err, result) => {
+            expect(err).to.not.exist()
+            expect(result).to.equal('value 2')
+            callback()
+          })
+        }
+      ], done)
+    })
   })
 })

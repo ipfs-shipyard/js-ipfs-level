@@ -30,13 +30,25 @@ module.exports = class Log extends EventEmitter {
 
     this._sync = new Sync(this._nodeId, partition, this, ipfs)
     this._sync.on('error', (err) => this.emit('error', err))
-    this._sync.on('message', (m) => {
-      debug('remote head: %j', m)
-      this._merger.processRemoteHead(m, (err) => {
+    this._sync.on('new head', (newHeadCID) => {
+      this.getLatestHeadCID((err, localHeadCID) => {
         if (err) {
           this.emit('error', err)
+          return // early
         }
-        debug('finished processing remote head %s', m)
+
+        if (localHeadCID === newHeadCID) {
+          return // early
+        }
+
+        debug('remote head: %j', newHeadCID)
+
+        this._merger.processRemoteHead(newHeadCID, (err) => {
+          if (err) {
+            this.emit('error', err)
+          }
+          debug('finished processing remote head %s', newHeadCID)
+        })
       })
     })
 
@@ -116,12 +128,24 @@ module.exports = class Log extends EventEmitter {
             }
           )
         },
-        (logCID) => {
+        (logCID, callback) => {
           this._sync.setNewHead(logCID)
           callback()
         }
       ],
       callback)
+  }
+
+  setHeadCID (cid, callback) {
+    debug('setting head cid to %s', cid)
+    this._log.put('tag:HEAD', cid, (err) => {
+      if (err) {
+        callback(err)
+      } else {
+        this._sync.setNewHead(cid)
+        callback()
+      }
+    })
   }
 
   transaction (fn, callback) {
