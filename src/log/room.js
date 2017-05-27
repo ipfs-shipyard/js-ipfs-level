@@ -37,8 +37,8 @@ module.exports = class Room extends EventEmitter {
   _emitChanges (newPeers) {
     const differences = diff(this._peers, newPeers)
 
-    differences.added.forEach((addedPeer) => emitter.emit('peer joiner', addedPeer))
-    differences.removed.forEach((removedPeer) => emitter.emit('peer left', removedPeer))
+    differences.added.forEach((addedPeer) => this.emit('peer joiner', addedPeer))
+    differences.removed.forEach((removedPeer) => this.emit('peer left', removedPeer))
 
     return differences.added.length > 0 || differences.removed.length > 0
   }

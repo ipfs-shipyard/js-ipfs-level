@@ -2,17 +2,19 @@
 
 const EventEmitter = require('events')
 const backoff = require('backoff').exponential
+const debug = require('debug')('ipfs-level:sync')
 
 const Room = require('./room')
 
 const BACKOFF_OPTIONS = {
-  initialDelay: 1000,
+  initialDelay: 100,
   maxDelay: 10000
 }
 
 module.exports = class Sync extends EventEmitter {
-  constructor (partition, log, ipfs) {
+  constructor (nodeId, partition, log, ipfs) {
     super()
+    this._nodeId = nodeId
     this._topic = '/ipfs-level/' + partition
     this._log = log
     this._ipfs = ipfs
@@ -31,8 +33,10 @@ module.exports = class Sync extends EventEmitter {
   }
 
   setNewHead (head) {
+    debug('setting new head to %s', head)
     this._head = head
     this._backoff.reset()
+    this._backoff.backoff()
   }
 
   stop () {
@@ -41,33 +45,28 @@ module.exports = class Sync extends EventEmitter {
   }
 
   _broadcast () {
+    debug('_broadcast')
     if (this._stopped) {
       return
     }
 
     if (this._head) {
-      this._ipfs.pubsub.publish(this._topic, this._head, (err) => {
+      debug('broadcasting head. topic = %s, head = %s', this._topic, this._head)
+      this._ipfs.pubsub.publish(this._topic, Buffer.from(this._head), (err) => {
         if (err) {
           this.emit('error', err)
         }
         this._backoff.backoff()
       })
     } else {
+      debug('no head yet')
       this._backoff.backoff()
     }
   }
 
   _onMessage (message) {
-    this.emit('message')
-    let m
-    try {
-      m = message.data.toString()
-    } catch (err) {
-      console.warn(err)
-    }
-
-    if (m) {
-      this.emit('message', m)
+    if (message.from !== this._nodeId) {
+      this.emit('message', message.data.toString())
     }
   }
 }

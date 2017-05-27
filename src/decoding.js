@@ -1,6 +1,12 @@
 'use strict'
 
 function decode (str) {
+  if (Buffer.isBuffer(str)) {
+    str = str.toString()
+  }
+  if (typeof str === 'object') {
+    return str
+  }
   return JSON.parse(str)
 }
 

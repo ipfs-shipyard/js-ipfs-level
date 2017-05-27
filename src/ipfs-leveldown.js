@@ -6,6 +6,7 @@ const IPFS = require('ipfs')
 const waterfall = require('async/waterfall')
 const eachSeries = require('async/eachSeries')
 const series = require('async/series')
+const clone = require('lodash.clonedeep')
 const defaultOptions = require('./default-options')
 const encode = require('./encode')
 const Iterator = require('./iterator')
@@ -25,7 +26,7 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
       _options = partition
       partition = undefined
     }
-    const options = merge({}, defaultOptions, _options)
+    const options = merge({}, clone(defaultOptions), _options)
     if (!partition) {
       partition = options.partition
     }
