@@ -43,7 +43,7 @@ describe('sync', () => {
     db2.open(done)
   })
 
-  after((done) => setTimeout(done, 6000))
+  after((done) => setTimeout(done, 8000))
 
   after((done) => db1.close(done))
   after((done) => db2.close(done))
@@ -52,7 +52,7 @@ describe('sync', () => {
   it('put in one is replicated', (done) => {
     series([
       (callback) => db1.put('key', 'value', callback),
-      (callback) => setTimeout(callback, 6000),
+      (callback) => setTimeout(callback, 9000),
       (callback) => {
         db2.get('key', (err, result) => {
           expect(err).to.not.exist()
@@ -69,7 +69,7 @@ describe('sync', () => {
       (callback) => db2.put('key 2', 'value 2', callback)
     ], done))
 
-    before((done) => setTimeout(done, 6000))
+    before((done) => setTimeout(done, 9000))
 
     it('merged', (done) => {
       parallel([
