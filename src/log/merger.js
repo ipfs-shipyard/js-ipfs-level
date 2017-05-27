@@ -74,11 +74,13 @@ module.exports = class Merger {
 
       if (newLogEntries.length) {
         this._log.transaction(() => {
-          waterfall([
+          series([
             (callback) => this._processNewRemoteLogEntries(cid, newLogEntries, callback),
             (callback) => this._mergeHeads(cid, callback)
           ], callback)
-        }, callback)
+        }, (err) => {
+          callback(err)
+        })
       } else {
         callback()
       }
@@ -152,11 +154,11 @@ module.exports = class Merger {
                       // our entry won, ignore remote one
                       callback()
                     }
-                    break
                 }
               })
             }))
-          }
+          },
+          callback
         )
       },
       (callback) => {
@@ -182,9 +184,8 @@ module.exports = class Merger {
     debug('going to determine if setting HEAD is required...', remoteHeadCID)
     parallel(
       {
-        localHeadCID: (callback) => this._log.getLatestHeadCID(callback),
         local: (callback) => this._log.getLatestHead(callback),
-        remote: (callback) => this._log.get(remoteHeadCID)
+        remote: (callback) => this._log.get(remoteHeadCID, callback)
       },
       (err, results) => {
         if (err) {
@@ -199,14 +200,16 @@ module.exports = class Merger {
           return
         }
 
-        const parents = [].concat(results.local.parents).concat(results.remote.parents)
+        const parents = [].concat(results.local.cid).concat(results.remote.cid).sort()
 
         const mergeHead = {
           parents: parents,
-          clock: vectorclock.increment(vectorclock.merge(results.local.clock, results.remote.clock), this._nodeId)
+          clock: vectorclock.merge(results.local.clock, results.remote.clock)
         }
 
-        this._log.setHead(mergeHead, callback)
+        this._log.setHead(mergeHead, (err) => {
+          callback(err)
+        })
       }
     )
   }

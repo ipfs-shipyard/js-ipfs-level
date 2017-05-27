@@ -98,15 +98,30 @@ module.exports = class Log extends EventEmitter {
 
   setHead (logEntry, callback) {
     debug('setting head to %j', logEntry)
-    waterfall([
-      (callback) => this._ipfs.dag.put(logEntry, OPTIONS.dag.put, callback),
-      (logCID, callback) => callback(null, logCID.toBaseEncodedString()),
-      (logCID, callback) => this._log.batch(
-        [
-          { type: 'put', key: 'cid:' + logCID, value: encode(logEntry) },
-          { type: 'put', key: 'tag:HEAD', value: logCID }
-        ], callback)
-    ], callback)
+    waterfall(
+      [
+        (callback) => this._ipfs.dag.put(logEntry, OPTIONS.dag.put, callback),
+        (logCID, callback) => {
+          logCID = logCID.toBaseEncodedString()
+          callback(null, logCID)
+        },
+        (logCID, callback) => {
+          this._log.batch(
+            [
+              { type: 'put', key: 'cid:' + logCID, value: encode(logEntry) },
+              { type: 'put', key: 'tag:HEAD', value: logCID }
+            ],
+            (err) => {
+              callback(err, logCID)
+            }
+          )
+        },
+        (logCID) => {
+          this._sync.setNewHead(logCID)
+          callback()
+        }
+      ],
+      callback)
   }
 
   transaction (fn, callback) {
@@ -175,7 +190,8 @@ module.exports = class Log extends EventEmitter {
   _newLogEntry (key, cid, latest) {
     if (!latest) {
       latest = {
-        clock: {}
+        clock: {},
+        parents: []
       }
     } else {
       latest.parents = [latest.cid]

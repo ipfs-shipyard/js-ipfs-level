@@ -11,6 +11,9 @@ function decode (str) {
 }
 
 module.exports = function decoding (callback) {
+  if (typeof callback !== 'function') {
+    throw new Error('callback is not a function')
+  }
   return (err, str) => {
     if (err && err.message === 'NotFound') {
       callback(null, undefined)

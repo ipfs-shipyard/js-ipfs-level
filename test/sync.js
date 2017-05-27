@@ -32,7 +32,6 @@ describe('sync', () => {
   })
 
   before((done) => {
-    console.log('DB2')
     const repo = createRepo()
     repos.push(repo)
     db2 = IPFSLevel(PARTITION, {
@@ -44,7 +43,7 @@ describe('sync', () => {
     db2.open(done)
   })
 
-  after((done) => setTimeout(done, 4000))
+  after((done) => setTimeout(done, 6000))
 
   after((done) => db1.close(done))
   after((done) => db2.close(done))
