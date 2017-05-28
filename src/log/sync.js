@@ -6,9 +6,10 @@ const debug = require('debug')('ipfs-level:sync')
 
 const Room = require('./room')
 
+// TODO: tweak these values to generate less traffic
 const BACKOFF_OPTIONS = {
-  initialDelay: 50,
-  maxDelay: 10000
+  initialDelay: 1000,
+  maxDelay: 2000
 }
 
 module.exports = class Sync extends EventEmitter {
@@ -27,7 +28,10 @@ module.exports = class Sync extends EventEmitter {
     this._backoff.backoff()
 
     this._room = new Room(this._topic, ipfs)
-    this._room.on('peer joined', () => this._backoff.reset())
+    this._room.on('peer joined', () => {
+      this._backoff.reset()
+      this._broadcast()
+    })
     this._room.on('error', (err) => this.emit('error', err))
 
     this._ipfs.pubsub.subscribe(this._topic, this._onMessage.bind(this))
@@ -37,7 +41,7 @@ module.exports = class Sync extends EventEmitter {
     debug('setting new head to %s', head)
     this._head = head
     this._backoff.reset()
-    this._backoff.backoff()
+    this._broadcast()
   }
 
   stop () {
