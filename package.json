@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "standard",
-    "test": "npm run lint && mocha test/leveldown.js --timeout=10000 && mocha test/iterator.js --timeout=10000 && mocha test/sync.js --timeout=10000"
+    "test": "npm run lint && mocha test/leveldown.js --timeout=20000 && mocha test/iterator.js --timeout=20000 && mocha test/sync.js --timeout=20000"
   },
   "repository": {
     "type": "git",
