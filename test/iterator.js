@@ -37,8 +37,6 @@ describe('leveldown iterator', () => {
 
   before((done) => db.batch(fixtures, done))
 
-  after((done) => setTimeout(done, 4000))
-  after((done) => db.close(done))
   after((done) => repo.teardown(done))
 
   it('can use a full iterator', (done) => {
