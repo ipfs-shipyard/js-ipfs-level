@@ -15,6 +15,8 @@ const createRepo = require('./utils/create-repo')
 
 const PARTITION = 'sync-test'
 
+const WAIT_FOR_SYNC_MS = 5000
+
 describe('sync', () => {
   const repos = []
   let db1, db2
@@ -45,18 +47,20 @@ describe('sync', () => {
 
   after((done) => each(repos, (repo, cb) => repo.teardown(cb), done))
 
-  it('put in one is replicated', (done) => {
-    series([
-      (callback) => db1.put('key', 'value', callback),
-      (callback) => setTimeout(callback, 10000),
-      (callback) => {
-        db2.get('key', (err, result) => {
-          expect(err).to.not.exist()
-          expect(result).to.equal('value')
-          done()
-        })
-      }
-    ], done)
+  it('puts in one', (done) => {
+    db1.put('key', 'value', done)
+  })
+
+  it('waits a bit', (done) => {
+    setTimeout(done, WAIT_FOR_SYNC_MS * 2)
+  })
+
+  it('put was replicated', (done) => {
+    db2.get('key', (err, result) => {
+      expect(err).to.not.exist()
+      expect(result).to.equal('value')
+      done()
+    })
   })
 
   it('puts some keys', (done) => {
@@ -68,7 +72,7 @@ describe('sync', () => {
   })
 
   it('waits some', (done) => {
-    setTimeout(done, 10000)
+    setTimeout(done, WAIT_FOR_SYNC_MS)
   })
 
   it('merged', (done) => {
@@ -88,5 +92,48 @@ describe('sync', () => {
         })
       }
     ], done)
+  })
+
+  it('concurrent put', (done) => {
+    parallel(
+      [
+        (callback) => db1.put('key 3', 'value 3.1', callback),
+        (callback) => db2.put('key 3', 'value 3.2', callback)
+      ],
+      done
+    )
+  })
+
+  it('waits some', (done) => {
+    setTimeout(done, WAIT_FOR_SYNC_MS)
+  })
+
+  it('merged and elected one value', (done) => {
+    const results = []
+    parallel(
+      [
+        (callback) => {
+          db2.get('key 3', (err, result) => {
+            expect(err).to.not.exist()
+            results.push(result)
+            callback()
+          })
+        },
+        (callback) => {
+          db1.get('key 3', (err, result) => {
+            expect(err).to.not.exist()
+            results.push(result)
+            callback()
+          })
+        }
+      ],
+      (err) => {
+        if (err) {
+          return done(err)
+        }
+        expect(results.length).to.equal(2)
+        expect(results[0]).to.equal(results[1])
+        done()
+      })
   })
 })

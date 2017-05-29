@@ -102,7 +102,7 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
     waterfall(
       [
         (callback) => this._log.getLatest(key, callback),
-        (latestHead, callback) => {
+        (latestHead, latestHeadCID, callback) => {
           if (!latestHead || latestHead.deleted) {
             callback(new Error('NotFound'))
           } else {

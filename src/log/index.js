@@ -4,7 +4,7 @@ const EventEmitter = require('events')
 const waterfall = require('async/waterfall')
 const Queue = require('async/queue')
 const vectorclock = require('vectorclock')
-const debug = require('debug')('ipfs-level:log')
+const debug = require('debug')
 
 const Sync = require('./sync')
 const Merger = require('./merger')
@@ -53,6 +53,8 @@ module.exports = class Log extends EventEmitter {
     })
 
     this._queue = Queue(this._processQueue.bind(this), 1)
+
+    this._debug = debug('ipfs-level:log:' + this._nodeId)
   }
 
   // PUBLIC API:
@@ -80,14 +82,26 @@ module.exports = class Log extends EventEmitter {
   getLatestHead (callback) {
     waterfall([
       (callback) => this.getLatestHeadCID(callback),
-      (logCID, callback) => logCID ? this._log.get('cid:' + logCID, decoding(callback)) : callback(null, null)
+      (logCID, callback) => logCID
+        ? this._log.get('cid:' + logCID, decoding((err, logEntry) => {
+          callback(err, logEntry, logCID)
+        }))
+        : callback(null, null, null)
     ], callback)
   }
 
   getLatest (key, callback) {
     waterfall([
       (callback) => this._log.get('key:' + key, { asBuffer: false }, ignoringNotFoundError(callback)),
-      (logCID, callback) => logCID ? this._log.get('cid:' + logCID, decoding(callback)) : callback(null, null)
+      (logCID, callback) => logCID
+        ? this._log.get('cid:' + logCID, decoding((err, logEntry) => {
+          if (err) {
+            callback(err)
+          } else {
+            callback(null, logEntry, logCID)
+          }
+        }))
+        : callback(null, null, null)
     ], callback)
   }
 
@@ -104,12 +118,12 @@ module.exports = class Log extends EventEmitter {
   }
 
   impose (key, logCID, callback) {
-    debug('imposing %s = %s', key, logCID)
+    this._debug('imposing %s = %s', key, logCID)
     this._log.put('key:' + key, logCID, callback)
   }
 
   setHead (logEntry, callback) {
-    debug('setting head to %j', logEntry)
+    this._debug('setting head to %j', logEntry)
     waterfall(
       [
         (callback) => this._ipfs.dag.put(logEntry, OPTIONS.dag.put, callback),
@@ -137,7 +151,7 @@ module.exports = class Log extends EventEmitter {
   }
 
   setHeadCID (cid, callback) {
-    debug('setting head cid to %s', cid)
+    this._debug('setting head cid to %s', cid)
     this._log.put('tag:HEAD', cid, (err) => {
       if (err) {
         callback(err)
@@ -176,13 +190,16 @@ module.exports = class Log extends EventEmitter {
   // INTERNALS:
 
   _save (key, cid, callback) {
-    debug('_save %j, %j', key, cid)
+    this._debug('_save %j, %j', key, cid)
     waterfall(
       [
         (callback) => this.getLatestHead(callback),
-        (latestHead, callback) => callback(null, this._newLogEntry(key, cid, latestHead)),
+        (latestHead, latestHeadCID, callback) => {
+          this._debug('_save: latest HEAD CID: %s', latestHeadCID)
+          callback(null, this._newLogEntry(key, cid, latestHead, latestHeadCID))
+        },
         (logEntry, callback) => {
-          debug('saving log entry %j', logEntry)
+          this._debug('saving log entry %j', logEntry)
           this._ipfs.dag.put(logEntry, OPTIONS.dag.put, (err, cid) => {
             callback(err, cid && cid.toBaseEncodedString(), logEntry)
           })
@@ -203,7 +220,7 @@ module.exports = class Log extends EventEmitter {
           })
         },
         (logCID, callback) => {
-          debug('saved. setting new head to %s', logCID)
+          this._debug('saved. setting new head to %s', logCID)
           this._sync.setNewHead(logCID)
           callback()
         }
@@ -211,14 +228,14 @@ module.exports = class Log extends EventEmitter {
       callback)
   }
 
-  _newLogEntry (key, cid, latest) {
+  _newLogEntry (key, cid, latest, latestCID) {
     if (!latest) {
       latest = {
         clock: {},
         parents: []
       }
     } else {
-      latest.parents = [latest.cid]
+      latest.parents = [latestCID]
     }
 
     latest.key = key

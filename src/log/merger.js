@@ -2,14 +2,14 @@
 
 const waterfall = require('async/waterfall')
 const series = require('async/series')
-const each = require('async/each')
 const eachSeries = require('async/eachSeries')
 const parallel = require('async/parallel')
 const Queue = require('async/queue')
 const vectorclock = require('vectorclock')
-const debug = require('debug')('ipfs-level:merger')
+const debug = require('debug')
 
 const decoding = require('../decoding')
+const Persister = require('./persister')
 
 module.exports = class Merger {
   constructor (nodeId, ipfs, log) {
@@ -17,12 +17,14 @@ module.exports = class Merger {
     this._ipfs = ipfs
     this._log = log
     this._headQueue = []
+    this._persister = new Persister(this._ipfs, this._log)
     this._queue = Queue(this._processRemoteHead.bind(this), 1)
+    this._debug = debug('ipfs-level:merge:' + this._nodeId)
   }
 
   processRemoteHead (cid, callback) {
     if (this._headQueue.indexOf(cid) < 0) {
-      debug('will process remote head %j, ...', cid)
+      this._debug('will process remote head %j, ...', cid)
       this._headQueue.push(cid)
       this._queue.push(cid, (err) => {
         this._headQueue.splice(this._headQueue.indexOf(cid), 1)
@@ -34,107 +36,69 @@ module.exports = class Merger {
   }
 
   _processRemoteHead (cid, callback) {
-    debug('processing remote head %j, ...', cid)
-    const newLogEntries = []
-
-    const ensureLogEntry = (cid, callback) => {
-      if (!cid) {
-        throw new Error('need a CID')
-      }
-      this._log.get(cid, (err, entry) => {
-        if (err) {
-          callback(err)
-          return // early
+    this._debug('processing remote head %j, ...', cid)
+    waterfall(
+      [
+        (callback) => this._persister.persistRecursive(cid, callback),
+        (newLogEntries, callback) => {
+          if (newLogEntries.length) {
+            this._log.transaction(
+              (callback) => {
+                series(
+                  [
+                    (callback) => this._processNewRemoteLogEntries(cid, newLogEntries, callback),
+                    (callback) => this._mergeHeads(cid, callback)
+                  ],
+                  callback)
+              },
+              callback)
+          } else {
+            callback()
+          }
         }
-
-        debug('log entry in cache: %j', entry)
-        if (!entry || entry.isNew) {
-          newLogEntries.push(cid)
-          waterfall(
-            [
-              (callback) => this._ipfs.dag.get(cid, callback),
-              (logEntry, callback) => {
-                const newEntry = Object.assign({}, logEntry.value, { isNew: true })
-                series([
-                  (callback) => this._log.set(cid, newEntry, callback),
-                  (callback) => {
-                    if (logEntry.value.parents) {
-                      each(
-                        logEntry.value.parents,
-                        ensureLogEntry,
-                        callback)
-                    } else {
-                      callback()
-                    }
-                  }
-                ], callback)
-              }
-            ],
-            callback)
-        } else {
-          callback()
-        }
-      })
-    }
-
-    ensureLogEntry(cid, (err) => {
-      if (err) {
-        callback(err)
-        return // early
-      }
-
-      debug('all log entries for remote head %s are ensured', cid)
-      debug('new log entries:', newLogEntries)
-
-      if (newLogEntries.length) {
-        this._log.transaction((callback) => {
-          series([
-            (callback) => this._processNewRemoteLogEntries(cid, newLogEntries, callback),
-            (callback) => this._mergeHeads(cid, callback)
-          ], callback)
-        }, callback)
-      } else {
-        callback()
-      }
-    })
+      ],
+      callback)
   }
 
+  // TODO: no need to store all the new log entries CIDs
+  // Since we have them stored, we just need to iteratively retrieve the parent nodes until covered
+  // them all.
   _processNewRemoteLogEntries (remoteHeadCID, newLogEntries, callback) {
     newLogEntries = newLogEntries.reverse()
 
-    debug('process new remote log entries: %j', newLogEntries)
+    this._debug('process new remote log entries: %j', newLogEntries)
     series([
       (callback) => {
         eachSeries(
           newLogEntries,
           (remoteEntryCID, callback) => {
-            debug('processing remote log entry %s ...', remoteEntryCID)
-            debug('trying to retrieve remote log entry from local cache')
+            this._debug('processing remote log entry %s ...', remoteEntryCID)
+            this._debug('trying to retrieve remote log entry from local cache')
             this._log.get(remoteEntryCID, decoding((err, remoteLogEntry) => {
               if (err) {
-                debug('error trying to retrieve remote log entry from local cache:', err)
+                this._debug('error trying to retrieve remote log entry from local cache:', err)
                 callback(err)
                 return // early
               }
 
               if (!remoteLogEntry) {
-                debug('remote log entry %s was NOT found in cache', remoteEntryCID)
+                this._debug('remote log entry %s was NOT found in cache', remoteEntryCID)
               }
 
-              debug('processing new remote log entry for key %s: %j', remoteLogEntry.key, remoteLogEntry)
+              this._debug('processing new remote log entry for key %s: %j', remoteLogEntry.key, remoteLogEntry)
 
               if (!remoteLogEntry.key) {
                 callback()
                 return // early
               }
 
-              this._log.getLatest(remoteLogEntry.key, (err, localLatestLogEntry) => {
+              this._log.getLatest(remoteLogEntry.key, (err, localLatestLogEntry, localLatestLogEntryCID) => {
                 if (err) {
                   callback(err)
                   return // early
                 }
 
-                debug('local log entry for key %s is %j', remoteLogEntry.key, localLatestLogEntry)
+                this._debug('local log entry for key %s is %j', remoteLogEntry.key, localLatestLogEntry)
 
                 const compared = localLatestLogEntry
                   ? vectorclock.compare(localLatestLogEntry, remoteLogEntry)
@@ -157,11 +121,12 @@ module.exports = class Merger {
                       callback()
                       return // early
                     }
-                    debug('conflict for key %j', remoteLogEntry.key)
+                    this._debug('conflict for key %j', remoteLogEntry.key)
                     // local latest log entry is CONCURRENT to remote one
 
-                    const chosenEntry = chooseOne(localLatestLogEntry, remoteLogEntry)
-                    if (chosenEntry === remoteLogEntry) {
+                    const chosenEntry = chooseOne([localLatestLogEntryCID, remoteEntryCID])
+                    this._debug('chosen entry: %j', chosenEntry)
+                    if (chosenEntry === remoteEntryCID) {
                       this._log.impose(remoteLogEntry.key, remoteEntryCID, callback)
                     } else {
                       // our entry won, ignore remote one
@@ -175,7 +140,7 @@ module.exports = class Merger {
         )
       },
       (callback) => {
-        debug('going to mark new log entries as visited: %j', newLogEntries)
+        this._debug('going to mark new log entries as visited: %j', newLogEntries)
         eachSeries(
           newLogEntries,
           (entryCID, callback) => {
@@ -194,10 +159,9 @@ module.exports = class Merger {
   }
 
   _mergeHeads (remoteHeadCID, callback) {
-    debug('going to determine if setting HEAD is required...', remoteHeadCID)
+    this._debug('going to determine if setting HEAD is required...', remoteHeadCID)
     parallel(
       {
-        localCID: (callback) => this._log.getLatestHeadCID(callback),
         local: (callback) => this._log.getLatestHead(callback),
         remote: (callback) => this._log.get(remoteHeadCID, callback)
       },
@@ -207,22 +171,29 @@ module.exports = class Merger {
           return // early
         }
 
-        if (!results.localCID) {
+        const localHead = results.local[0]
+        const localHeadCID = results.local[1]
+        const remoteHead = results.remote
+
+        this._debug('local head:', localHead)
+        this._debug('remote head:', remoteHead)
+
+        if (!localHeadCID) {
           this._log.setHeadCID(remoteHeadCID, callback)
           return // early
         }
 
-        if (results.localCID === remoteHeadCID) {
-          debug('heads %j and %j are the same')
+        if (localHeadCID === remoteHeadCID) {
+          this._debug('heads %j and %j are the same')
           callback()
           return // early
         }
 
-        const parents = [remoteHeadCID, results.localCID].sort()
+        const parents = [remoteHeadCID, localHeadCID].sort()
 
         const mergeHead = {
           parents: parents,
-          clock: vectorclock.merge(results.local.clock, results.remote.clock)
+          clock: vectorclock.merge(localHead.clock, remoteHead.clock)
         }
 
         this._log.setHead(mergeHead, callback)
@@ -231,10 +202,6 @@ module.exports = class Merger {
   }
 }
 
-function chooseOne (a, b) {
-  if (a.cid > b.cid) {
-    return a
-  } else {
-    return b
-  }
+function chooseOne (entries) {
+  return entries.sort()[entries.length - 1]
 }
