@@ -1,6 +1,8 @@
 /* eslint-env mocha */
 'use strict'
 
+require('segfault-handler').registerHandler('crash.log')
+
 const chai = require('chai')
 chai.use(require('dirty-chai'))
 const expect = chai.expect

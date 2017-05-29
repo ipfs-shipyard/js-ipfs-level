@@ -30,6 +30,7 @@
     "memdown": "^1.2.4",
     "mocha": "^3.4.1",
     "rimraf": "^2.6.1",
+    "segfault-handler": "^1.0.0",
     "standard": "^10.0.2"
   },
   "dependencies": {
