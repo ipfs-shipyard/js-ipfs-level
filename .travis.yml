@@ -17,8 +17,6 @@ before_script:
   - sh -e /etc/init.d/xvfb start
 
 script:
-  - npm install webrtc --build-from-source
-  - npm install leveldown
   - npm test
 
 addons:
