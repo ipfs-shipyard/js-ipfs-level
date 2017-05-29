@@ -10,7 +10,8 @@ matrix:
 # Make sure we have new NPM.
 before_install:
   - npm install -g npm
-  - npm install webrtc leveldown
+  - npm install webrtc --build-from-source
+  - npm install leveldown
 
 script:
   - npm test
