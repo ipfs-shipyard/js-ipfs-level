@@ -5,9 +5,12 @@ const merge = require('deep-assign')
 const IPFS = require('ipfs')
 const waterfall = require('async/waterfall')
 const eachSeries = require('async/eachSeries')
+const series = require('async/series')
+const clone = require('lodash.clonedeep')
 const defaultOptions = require('./default-options')
 const encode = require('./encode')
 const Iterator = require('./iterator')
+const Log = require('./log')
 
 const OPTIONS = {
   dag: {
@@ -23,7 +26,7 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
       _options = partition
       partition = undefined
     }
-    const options = merge({}, defaultOptions, _options)
+    const options = merge({}, clone(defaultOptions), _options)
     if (!partition) {
       partition = options.partition
     }
@@ -32,18 +35,31 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
       throw new Error('need a partition to be defined')
     }
 
-    const heads = options.heads
-    if (!heads) {
-      throw new Error('need a heads database')
+    const logDB = options.log
+    if (!logDB) {
+      throw new Error('need a log database')
     }
 
     super(partition)
-    this._heads = heads
+    this._logDB = logDB
     this._options = options
     this._partition = partition
   }
 
-  _open (options, callback) {
+  _open (options, _callback) {
+    const callback = () => {
+      this._ipfs.id((err, peerInfo) => {
+        if (err) {
+          _callback(err)
+        } else {
+          this._log = new Log(peerInfo.id, this._logDB, this._partition, this._ipfs)
+          // TODO: handle the error properly
+          this._log.on('error', (err) => { throw err })
+          _callback()
+        }
+      })
+    }
+
     this._ipfs = this._options.ipfs
     if (!this._ipfs) {
       this._ipfs = new IPFS(this._options.ipfsOptions)
@@ -56,14 +72,28 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
   }
 
   _close (callback) {
-    this._ipfs.stop(callback)
+    series([
+      (callback) => {
+        if (this._ipfs && this._ipfs.isOnline()) {
+          this._ipfs.stop(callback)
+        } else {
+          callback()
+        }
+      },
+      (callback) => {
+        if (this._log) {
+          this._log.stop()
+        }
+        callback()
+      }
+    ], callback)
   }
 
   _put (key, value, options, callback) {
     waterfall(
       [
         (callback) => this._ipfs.dag.put(encode.kv(key, value, options), OPTIONS.dag.put, callback),
-        (cid, callback) => this._heads.put(key, cid.toBaseEncodedString(), callback)
+        (cid, callback) => this._log.push(key, cid.toBaseEncodedString(), callback)
       ],
       callback)
   }
@@ -71,12 +101,12 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
   _get (key, options, callback) {
     waterfall(
       [
-        (callback) => this._heads.get(key, { asBuffer: false }, callback),
-        (cid, callback) => {
-          if (!cid) {
+        (callback) => this._log.getLatest(key, callback),
+        (latestHead, latestHeadCID, callback) => {
+          if (!latestHead || latestHead.deleted) {
             callback(new Error('NotFound'))
           } else {
-            callback(null, cid)
+            callback(null, latestHead.cid)
           }
         },
         (cid, callback) => this._ipfs.dag.get(cid, callback),
@@ -95,7 +125,7 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
   }
 
   _del (key, options, callback) {
-    this._heads.del(key, callback)
+    this._log.del(key, callback)
   }
 
   _batch (array, options, callback) {
@@ -114,6 +144,6 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
   }
 
   _iterator (options) {
-    return new Iterator(this, this._ipfs, this._heads, options)
+    return new Iterator(this, this._ipfs, this._logDB, options)
   }
 }

@@ -29,6 +29,14 @@ Arguments:
   * `heads` (LevelDown-compatible database that stores the heads, mandatory)
   * `ipfs` (IPFS instance, optional). If not supplied, ipfs-level creates a new IPFS node.
 
+# Internals
+
+The internals are documented [here](docs/INTERNALS.md).
+
+# Test and debug
+
+This package uses [debug](https://github.com/visionmedia/debug#readme), so you can activate debug messages by setting the environment variable `DEBUG` to `ipfs-level:*`
+
 # License
 
 MIT

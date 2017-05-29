@@ -6,10 +6,3 @@ exports.kv = (key, value, options) => {
     value: value
   }
 }
-
-exports.deleted = (key) => {
-  return {
-    key: key,
-    deleted: true
-  }
-}

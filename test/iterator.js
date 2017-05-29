@@ -9,6 +9,8 @@ const Memdown = require('memdown')
 const whilst = require('async/whilst')
 const IPFSLevel = require('../')
 
+const createRepo = require('./utils/create-repo')
+
 const PARTITION = 'iterator-test'
 
 const fixtures = [
@@ -20,8 +22,12 @@ const fixtures = [
 
 describe('leveldown iterator', () => {
   let db
+  const repo = createRepo()
   const options = {
-    heads: Memdown(PARTITION)
+    ipfsOptions: {
+      repo: repo
+    },
+    log: Memdown(PARTITION)
   }
 
   before((done) => {
@@ -31,7 +37,7 @@ describe('leveldown iterator', () => {
 
   before((done) => db.batch(fixtures, done))
 
-  after((done) => db.close(done))
+  after((done) => repo.teardown(done))
 
   it('can use a full iterator', (done) => {
     let ended = false

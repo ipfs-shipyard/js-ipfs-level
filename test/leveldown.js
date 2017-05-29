@@ -8,13 +8,21 @@ const expect = chai.expect
 const Memdown = require('memdown')
 const IPFSLevel = require('../')
 
+const createRepo = require('./utils/create-repo')
+
 const PARTITION = 'leveldown-test'
 
 describe('leveldown interface', () => {
+  const repo = createRepo()
   let db
   const options = {
-    heads: Memdown(PARTITION)
+    ipfsOptions: {
+      repo: repo
+    },
+    log: Memdown(PARTITION)
   }
+
+  after((done) => repo.teardown(done))
 
   it('can create leveldown object', (done) => {
     db = IPFSLevel(PARTITION, options)
@@ -70,9 +78,5 @@ describe('leveldown interface', () => {
         done()
       })
     })
-  })
-
-  it('can be closed', (done) => {
-    db.close(done)
   })
 })
