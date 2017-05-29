@@ -7,8 +7,8 @@ const expect = chai.expect
 
 const Memdown = require('memdown')
 const each = require('async/each')
-const series = require('async/series')
 const parallel = require('async/parallel')
+const map = require('async/map')
 
 const IPFSLevel = require('../')
 const createRepo = require('./utils/create-repo')
@@ -19,7 +19,7 @@ const WAIT_FOR_SYNC_MS = 5000
 
 describe('sync', () => {
   const repos = []
-  let db1, db2
+  let db1, db2, db3, electedKey3Value
 
   before((done) => {
     const repo = createRepo()
@@ -133,6 +133,40 @@ describe('sync', () => {
         }
         expect(results.length).to.equal(2)
         expect(results[0]).to.equal(results[1])
+        electedKey3Value = results[0]
+        expect(electedKey3Value).to.exist()
+        done()
+      })
+  })
+
+  it('a third node appears', (done) => {
+    const repo = createRepo()
+    repos.push(repo)
+    db3 = IPFSLevel(PARTITION, {
+      ipfsOptions: {
+        repo: repo
+      },
+      log: Memdown(PARTITION + ':db3')
+    })
+    db3.open(done)
+  })
+
+  it('waits a bit', (done) => {
+    setTimeout(done, WAIT_FOR_SYNC_MS * 2)
+  })
+
+  it('has all values', (done) => {
+    map(
+      ['1', '2', '3'],
+      (key, callback) => {
+        db3.get('key ' + key, (err, result) => {
+          expect(err).to.not.exist()
+          callback(null, result)
+        })
+      },
+      (err, results) => {
+        expect(err).to.not.exist()
+        expect(results).to.deep.equal(['value 1', 'value 2', electedKey3Value])
         done()
       })
   })
