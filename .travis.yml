@@ -5,15 +5,20 @@ matrix:
   include:
   - node_js: 6
     env:
+      - SAUCE=false
       - CXX=g++-4.8
 
 # Make sure we have new NPM.
 before_install:
   - npm install -g npm
-  - npm install webrtc --build-from-source
-  - npm install leveldown
+
+before_script:
+  - export DISPLAY=:99.0
+  - sh -e /etc/init.d/xvfb start
 
 script:
+  - npm install webrtc --build-from-source
+  - npm install leveldown
   - npm test
 
 addons:
