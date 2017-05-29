@@ -5,7 +5,6 @@ matrix:
   include:
   - node_js: 6
     env:
-      - SAUCE=true
       - CXX=g++-4.8
 
 # Make sure we have new NPM.
