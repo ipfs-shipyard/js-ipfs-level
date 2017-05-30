@@ -22,7 +22,7 @@ const OPTIONS = {
 
 module.exports = class IPFSLeveldown extends AbstractLeveldown {
   constructor (partition, _options) {
-    if (typeof _partition === 'object') {
+    if (typeof partition === 'object') {
       _options = partition
       partition = undefined
     }
