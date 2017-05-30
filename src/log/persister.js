@@ -44,7 +44,6 @@ module.exports = class Persister {
               series([
                 (callback) => this._log.set(cid, newEntry, callback),
                 (callback) => {
-                  console.log('parents:', logEntry.value)
                   if (logEntry.value.parents) {
                     each(
                       logEntry.value.parents,
