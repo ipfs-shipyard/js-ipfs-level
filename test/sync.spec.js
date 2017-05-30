@@ -1,8 +1,6 @@
 /* eslint-env mocha */
 'use strict'
 
-require('segfault-handler').registerHandler('crash.log')
-
 const chai = require('chai')
 chai.use(require('dirty-chai'))
 const expect = chai.expect
@@ -13,7 +11,7 @@ const parallel = require('async/parallel')
 const map = require('async/map')
 
 const IPFSLevel = require('../')
-const createRepo = require('./utils/create-repo')
+const createRepo = require('./utils/create-repo-node')
 
 const PARTITION = 'sync-test'
 

@@ -9,7 +9,7 @@ const Memdown = require('memdown')
 const whilst = require('async/whilst')
 const IPFSLevel = require('../')
 
-const createRepo = require('./utils/create-repo')
+const createRepo = require('./utils/create-repo-node.js')
 
 const PARTITION = 'iterator-test'
 

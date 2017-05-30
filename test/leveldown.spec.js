@@ -8,7 +8,7 @@ const expect = chai.expect
 const Memdown = require('memdown')
 const IPFSLevel = require('../')
 
-const createRepo = require('./utils/create-repo')
+const createRepo = require('./utils/create-repo-node')
 
 const PARTITION = 'leveldown-test'
 

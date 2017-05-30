@@ -67,7 +67,7 @@ module.exports = class IPFSLeveldown extends AbstractLeveldown {
     if (this._ipfs.isOnline()) {
       callback()
     } else {
-      this._ipfs.once('ready', () => callback())
+      this._ipfs.once('start', () => callback())
     }
   }
 
