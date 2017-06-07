@@ -38,7 +38,7 @@ describe('leveldown interface', () => {
   })
 
   it('can get that value back', (done) => {
-    db.get('key', (err, result) => {
+    db.get('key', { asBuffer: false }, (err, result) => {
       expect(err).to.not.exist()
       expect(result).to.equal('value')
       done()
@@ -68,11 +68,11 @@ describe('leveldown interface', () => {
   })
 
   it('batch worked', (done) => {
-    db.get('key 2', (err, result) => {
+    db.get('key 2', { asBuffer: false }, (err, result) => {
       expect(err).to.not.exist()
       expect(result).to.equal('value 2')
 
-      db.get('key 1', (err) => {
+      db.get('key 1', { asBuffer: false }, (err) => {
         expect(err).to.exist()
         expect(err.message).to.equal('NotFound')
         done()

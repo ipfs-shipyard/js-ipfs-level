@@ -42,7 +42,7 @@ describe('leveldown iterator', () => {
   it('can use a full iterator', (done) => {
     let ended = false
     let pos = -1
-    const it = db.iterator({ keyAsBuffer: false })
+    const it = db.iterator({ keyAsBuffer: false, valueAsBuffer: false })
     whilst(
       () => !ended,
       (callback) => {

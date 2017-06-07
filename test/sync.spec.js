@@ -28,7 +28,8 @@ describe('sync', () => {
       ipfsOptions: {
         repo: repo
       },
-      log: Memdown(PARTITION + ':db1')
+      log: Memdown(PARTITION + ':db1'),
+      sync: true
     })
     db1.open(done)
   })
@@ -45,6 +46,9 @@ describe('sync', () => {
     db2.open(done)
   })
 
+  after((done) => db1 && db1.close(done) || done())
+  after((done) => db2 && db2.close(done) || done())
+
   after((done) => each(repos, (repo, cb) => repo.teardown(cb), done))
 
   it('puts in one', (done) => {
@@ -56,7 +60,7 @@ describe('sync', () => {
   })
 
   it('put was replicated', (done) => {
-    db2.get('key', (err, result) => {
+    db2.get('key', { asBuffer: false }, (err, result) => {
       expect(err).to.not.exist()
       expect(result).to.equal('value')
       done()
@@ -78,14 +82,14 @@ describe('sync', () => {
   it('merged', (done) => {
     parallel([
       (callback) => {
-        db2.get('key 1', (err, result) => {
+        db2.get('key 1', { asBuffer: false }, (err, result) => {
           expect(err).to.not.exist()
           expect(result).to.equal('value 1')
           callback()
         })
       },
       (callback) => {
-        db1.get('key 2', (err, result) => {
+        db1.get('key 2', { asBuffer: false }, (err, result) => {
           expect(err).to.not.exist()
           expect(result).to.equal('value 2')
           callback()
@@ -113,14 +117,14 @@ describe('sync', () => {
     parallel(
       [
         (callback) => {
-          db2.get('key 3', (err, result) => {
+          db2.get('key 3', { asBuffer: false }, (err, result) => {
             expect(err).to.not.exist()
             results.push(result)
             callback()
           })
         },
         (callback) => {
-          db1.get('key 3', (err, result) => {
+          db1.get('key 3', { asBuffer: false }, (err, result) => {
             expect(err).to.not.exist()
             results.push(result)
             callback()
@@ -159,7 +163,7 @@ describe('sync', () => {
     map(
       ['1', '2', '3'],
       (key, callback) => {
-        db3.get('key ' + key, (err, result) => {
+        db3.get('key ' + key, { asBuffer: false }, (err, result) => {
           expect(err).to.not.exist()
           callback(null, result)
         })

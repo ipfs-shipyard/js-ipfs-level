@@ -19,38 +19,40 @@ const OPTIONS = {
 }
 
 module.exports = class Log extends EventEmitter {
-  constructor (nodeId, log, partition, ipfs) {
+  constructor (nodeId, log, partition, ipfs, options) {
     super()
     this._nodeId = nodeId
     this._log = log
     this._partition = partition
     this._ipfs = ipfs
 
-    this._merger = new Merger(this._nodeId, this._ipfs, this)
+    if (options.sync) {
+      this._merger = new Merger(this._nodeId, this._ipfs, this)
 
-    this._sync = new Sync(this._nodeId, partition, this, ipfs)
-    this._sync.on('error', (err) => this.emit('error', err))
-    this._sync.on('new head', (newHeadCID) => {
-      this.getLatestHeadCID((err, localHeadCID) => {
-        if (err) {
-          this.emit('error', err)
-          return // early
-        }
-
-        if (localHeadCID === newHeadCID) {
-          return // early
-        }
-
-        debug('remote head: %j', newHeadCID)
-
-        this._merger.processRemoteHead(newHeadCID, (err) => {
+      this._sync = new Sync(this._nodeId, partition, this, ipfs)
+      this._sync.on('error', (err) => this.emit('error', err))
+      this._sync.on('new head', (newHeadCID) => {
+        this.getLatestHeadCID((err, localHeadCID) => {
           if (err) {
             this.emit('error', err)
+            return // early
           }
-          debug('finished processing remote head %s', newHeadCID)
+
+          if (localHeadCID === newHeadCID) {
+            return // early
+          }
+
+          debug('remote head: %j', newHeadCID)
+
+          this._merger.processRemoteHead(newHeadCID, (err) => {
+            if (err) {
+              this.emit('error', err)
+            }
+            debug('finished processing remote head %s', newHeadCID)
+          })
         })
       })
-    })
+    }
 
     this._queue = Queue(this._processQueue.bind(this), 1)
 
@@ -91,9 +93,12 @@ module.exports = class Log extends EventEmitter {
   }
 
   getLatest (key, callback) {
+    debug('getting the latest log entry for key %j', key)
     waterfall([
       (callback) => this._log.get('key:' + key, { asBuffer: false }, ignoringNotFoundError(callback)),
-      (logCID, callback) => logCID
+      (logCID, callback) => {
+        debug('got latest log entry for key %j: %j', key, logCID)
+        return logCID
         ? this._log.get('cid:' + logCID, decoding((err, logEntry) => {
           if (err) {
             callback(err)
@@ -102,11 +107,14 @@ module.exports = class Log extends EventEmitter {
           }
         }))
         : callback(null, null, null)
+      }
     ], callback)
   }
 
   stop () {
-    this._sync.stop()
+    if (this._sync) {
+      this._sync.stop()
+    }
   }
 
   get (cid, callback) {
@@ -119,6 +127,7 @@ module.exports = class Log extends EventEmitter {
 
   impose (key, logCID, callback) {
     this._debug('imposing %s = %s', key, logCID)
+    console.log('imposing %s = %s', key, logCID)
     this._log.put('key:' + key, logCID, callback)
   }
 
@@ -127,10 +136,7 @@ module.exports = class Log extends EventEmitter {
     waterfall(
       [
         (callback) => this._ipfs.dag.put(logEntry, OPTIONS.dag.put, callback),
-        (logCID, callback) => {
-          logCID = logCID.toBaseEncodedString()
-          callback(null, logCID)
-        },
+        (cid, callback) => callback(null, cid.toBaseEncodedString()),
         (logCID, callback) => {
           this._log.batch(
             [
@@ -143,7 +149,9 @@ module.exports = class Log extends EventEmitter {
           )
         },
         (logCID, callback) => {
-          this._sync.setNewHead(logCID)
+          if (this._sync) {
+            this._sync.setNewHead(logCID)
+          }
           callback()
         }
       ],
@@ -156,7 +164,9 @@ module.exports = class Log extends EventEmitter {
       if (err) {
         callback(err)
       } else {
-        this._sync.setNewHead(cid)
+        if (this._sync) {
+          this._sync.setNewHead(cid)
+        }
         callback()
       }
     })
@@ -221,7 +231,9 @@ module.exports = class Log extends EventEmitter {
         },
         (logCID, callback) => {
           this._debug('saved. setting new head to %s', logCID)
-          this._sync.setNewHead(logCID)
+          if (this._sync) {
+            this._sync.setNewHead(logCID)
+          }
           callback()
         }
       ],
