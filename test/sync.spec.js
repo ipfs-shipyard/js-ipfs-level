@@ -41,7 +41,8 @@ describe('sync', () => {
       ipfsOptions: {
         repo: repo
       },
-      log: Memdown(PARTITION + ':db2')
+      log: Memdown(PARTITION + ':db2'),
+      sync: true
     })
     db2.open(done)
   })
@@ -150,7 +151,8 @@ describe('sync', () => {
       ipfsOptions: {
         repo: repo
       },
-      log: Memdown(PARTITION + ':db3')
+      log: Memdown(PARTITION + ':db3'),
+      sync: true
     })
     db3.open(done)
   })
