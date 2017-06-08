@@ -71,8 +71,9 @@ IPFSLevel.prototype = Object.assign(
             _callback(err)
           } else {
             this._log = new Log(peerInfo.id, this._logDB, this._partition, this._ipfs, this._options)
-            // TODO: handle the error properly
-            this._log.on('error', (err) => { throw err })
+            this._log.on('error', (err) => this.emit('error', err))
+            this._log.on('change', this._onLogChange.bind(this))
+
             this.emit('started')
             _callback()
           }
@@ -205,6 +206,38 @@ IPFSLevel.prototype = Object.assign(
       } else {
         this.once('started', cb)
       }
+    },
+
+    _onLogChange: function _onLogChange (change) {
+      const key = change.key
+      const logCID = change.logCID
+      waterfall(
+        [
+          (callback) => this._ipfs.dag.get(logCID, callback),
+          (result, callback) => callback(null, result.value),
+          (logEntry, callback) => {
+            if (logEntry.deleted) {
+              callback(null, null)
+            } else {
+              this._ipfs.dag.get(logEntry.cid, callback)
+            }
+          },
+          (result, callback) => callback(null, result && result.value),
+          (value, callback) => {
+            this.emit('change', {
+              type: value ? 'put' : 'del',
+              key: key,
+              value: value
+            })
+            callback()
+          }
+        ],
+        (err) => {
+          if (err) {
+            this.emit('error', err)
+          }
+        }
+      )
     }
   }
 )

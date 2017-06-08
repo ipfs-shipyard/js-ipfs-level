@@ -47,104 +47,88 @@ describe('sync', () => {
     db2.open(done)
   })
 
-  after((done) => db1 && db1.close(done) || done())
-  after((done) => db2 && db2.close(done) || done())
+  // after((done) => db1 && db1.close(() => done()) || done())
+  // after((done) => db2 && db2.close(() => done()) || done())
+  // after((done) => db3 && db3.close(() => done()) || done())
 
   after((done) => each(repos, (repo, cb) => repo.teardown(cb), done))
 
   it('puts in one', (done) => {
-    db1.put('key', 'value', done)
-  })
-
-  it('waits a bit', (done) => {
-    setTimeout(done, WAIT_FOR_SYNC_MS * 2)
-  })
-
-  it('put was replicated', (done) => {
-    db2.get('key', { asBuffer: false }, (err, result) => {
-      expect(err).to.not.exist()
-      expect(result).to.equal('value')
+    db2.once('change', (change) => {
+      expect(change.type).to.equal('put')
+      expect(change.key).to.equal('key')
+      expect(change.value).to.equal('value')
       done()
     })
+
+    db1.put('key', 'value', expectNoError)
   })
 
   it('puts some keys', (done) => {
+    const waitingForNodes = { db1: true, db2: true }
+    db1.on('change', (change) => {
+      if (change.key === 'key 2') {
+        expect(change.value).to.equal('value 2')
+        waitingForNodes.db1 = false
+        maybeDone()
+      }
+    })
+    db2.on('change', (change) => {
+      if (change.key === 'key 1') {
+        expect(change.value).to.equal('value 1')
+        waitingForNodes.db2 = false
+        maybeDone()
+      }
+    })
     parallel(
       [
         (callback) => db1.put('key 1', 'value 1', callback),
         (callback) => db2.put('key 2', 'value 2', callback)
-      ], done)
-  })
+      ], expectNoError)
 
-  it('waits some', (done) => {
-    setTimeout(done, WAIT_FOR_SYNC_MS)
-  })
-
-  it('merged', (done) => {
-    parallel([
-      (callback) => {
-        db2.get('key 1', { asBuffer: false }, (err, result) => {
-          expect(err).to.not.exist()
-          expect(result).to.equal('value 1')
-          callback()
-        })
-      },
-      (callback) => {
-        db1.get('key 2', { asBuffer: false }, (err, result) => {
-          expect(err).to.not.exist()
-          expect(result).to.equal('value 2')
-          callback()
-        })
+    function maybeDone() {
+      if (!waitingForNodes.db1 && !waitingForNodes.db2) {
+        done()
       }
-    ], done)
+    }
   })
 
   it('concurrent put', (done) => {
+    const dbs = [db1, db2]
+    const results = [];
+    let changes = 0
+
+    dbs.forEach((db, index) => db.on('change', (change) => {
+      console.log('change', change)
+      if (change.key === 'key 3') {
+        changes++
+        results[index] = change.value
+        maybeDone()
+      }
+    }))
+
+    function maybeDone () {
+      if (changes !== 3) {
+        return // early
+      }
+
+      expect(results[0]).to.equal(results[1])
+      expect(results[0]).to.be.oneOf(['value 3.1', 'value 3.2'])
+      expect(results[1]).to.be.oneOf(['value 3.1', 'value 3.2'])
+      electedKey3Value = results[0]
+      done()
+    }
+
     parallel(
       [
         (callback) => db1.put('key 3', 'value 3.1', callback),
         (callback) => db2.put('key 3', 'value 3.2', callback)
       ],
-      done
-    )
-  })
-
-  it('waits some', (done) => {
-    setTimeout(done, WAIT_FOR_SYNC_MS)
-  })
-
-  it('merged and elected one value', (done) => {
-    const results = []
-    parallel(
-      [
-        (callback) => {
-          db2.get('key 3', { asBuffer: false }, (err, result) => {
-            expect(err).to.not.exist()
-            results.push(result)
-            callback()
-          })
-        },
-        (callback) => {
-          db1.get('key 3', { asBuffer: false }, (err, result) => {
-            expect(err).to.not.exist()
-            results.push(result)
-            callback()
-          })
-        }
-      ],
-      (err) => {
-        if (err) {
-          return done(err)
-        }
-        expect(results.length).to.equal(2)
-        expect(results[0]).to.equal(results[1])
-        electedKey3Value = results[0]
-        expect(electedKey3Value).to.exist()
-        done()
-      })
+      expectNoError)
   })
 
   it('a third node appears', (done) => {
+    let changes = 0
     const repo = createRepo()
     repos.push(repo)
     db3 = IPFSLevel(PARTITION, {
@@ -154,26 +138,33 @@ describe('sync', () => {
       log: Memdown(PARTITION + ':db3'),
       sync: true
     })
-    db3.open(done)
-  })
 
-  it('waits a bit', (done) => {
-    setTimeout(done, WAIT_FOR_SYNC_MS * 2)
-  })
+    db3.on('change', (change) => {
+      if (++changes !== 4) {
+        return // early
+      }
 
-  it('has all values', (done) => {
-    map(
-      ['1', '2', '3'],
-      (key, callback) => {
-        db3.get('key ' + key, { asBuffer: false }, (err, result) => {
+      map(
+        ['1', '2', '3'],
+        (key, callback) => {
+          db3.get('key ' + key, { asBuffer: false }, (err, result) => {
+            expect(err).to.not.exist()
+            callback(null, result)
+          })
+        },
+        (err, results) => {
           expect(err).to.not.exist()
-          callback(null, result)
+          expect(results).to.deep.equal(['value 1', 'value 2', electedKey3Value])
+          done()
         })
-      },
-      (err, results) => {
-        expect(err).to.not.exist()
-        expect(results).to.deep.equal(['value 1', 'value 2', electedKey3Value])
-        done()
-      })
+    })
+
+    db3.open(expectNoError)
   })
 })
+
+function expectNoError (err) {
+  if (err) {
+    throw err
+  }
+}

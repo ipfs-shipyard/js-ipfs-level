@@ -2,6 +2,7 @@
 
 const EventEmitter = require('events')
 const waterfall = require('async/waterfall')
+const series = require('async/series')
 const Queue = require('async/queue')
 const vectorclock = require('vectorclock')
 const debug = require('debug')
@@ -127,8 +128,19 @@ module.exports = class Log extends EventEmitter {
 
   impose (key, logCID, callback) {
     this._debug('imposing %s = %s', key, logCID)
-    console.log('imposing %s = %s', key, logCID)
-    this._log.put('key:' + key, logCID, callback)
+    series(
+      [
+        (callback) => this._log.put('key:' + key, logCID, callback),
+        (callback) => {
+          this.emit('change', {
+            key: key,
+            logCID: logCID
+          })
+          callback()
+        }
+      ],
+      callback)
+
   }
 
   setHead (logEntry, callback) {
@@ -234,6 +246,10 @@ module.exports = class Log extends EventEmitter {
           if (this._sync) {
             this._sync.setNewHead(logCID)
           }
+          this.emit('change', {
+            key: key,
+            logCID: logCID
+          })
           callback()
         }
       ],

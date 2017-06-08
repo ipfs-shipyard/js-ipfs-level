@@ -28,6 +28,7 @@ Arguments:
   * `ipfsOptions` (object). [IPFS options object](https://github.com/ipfs/js-ipfs#advanced-options-when-creating-an-ipfs-node).
   * `log` (LevelDown-compatible database that stores the log)
   * `sync` (boolean, defaults to `false`): EXPERIMENTAL! syncs data between nodes
+  * `ipfs` (IPFS object): an IPFS object instance. If you already can provide an IPFS object, pass it in here.
 
 
 # Default arguments
