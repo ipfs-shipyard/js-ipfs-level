@@ -38,15 +38,10 @@ describe('abstract-leveldown tests', () => {
           if (!result.ok && ignoreTests.indexOf(assertId) === -1) {
             done(new Error('abstract leveldown test failed. Result:\n' + JSON.stringify(result)))
           }
-        } else if (result.type === 'end') {
-          console.log('END')
         }
       })
 
-    test.onFinish(() => {
-      console.log('onFinish!!!')
-      done()
-    })
+    test.onFinish(() => done())
 
     require('abstract-leveldown/abstract/open-test').args(ipfsLevel, test, testCommon)
     // require('abstract-leveldown/abstract/open-test').open(ipfsLevel, test, testCommon)
