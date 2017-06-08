@@ -47,10 +47,6 @@ describe('sync', () => {
     db2.open(done)
   })
 
-  // after((done) => db1 && db1.close(() => done()) || done())
-  // after((done) => db2 && db2.close(() => done()) || done())
-  // after((done) => db3 && db3.close(() => done()) || done())
-
   after((done) => each(repos, (repo, cb) => repo.teardown(cb), done))
 
   it('puts in one', (done) => {
@@ -99,7 +95,6 @@ describe('sync', () => {
     let changes = 0
 
     dbs.forEach((db, index) => db.on('change', (change) => {
-      console.log('change', change)
       if (change.key === 'key 3') {
         changes++
         results[index] = change.value
