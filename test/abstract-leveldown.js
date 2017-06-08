@@ -1,3 +1,4 @@
+/* eslint-env mocha */
 const test = require('tape')
 const Memdown = require('memdown')
 
@@ -25,7 +26,6 @@ process.on('unaughtException', (err) => {
 
 describe('abstract-leveldown tests', () => {
   it('runs all the abstract-leveldown tests', (done) => {
-
     let currentTest = null
 
     test.createStream({ objectMode: true })

@@ -39,9 +39,20 @@ const ipfsLevel = IPFSLevel.defaults({
 })
 ```
 
-## Sync
+## Events
 
-TODO: Explain sync
+An IPFSLevel instance emits the following events
+
+### `emit("change", change)`
+
+Emitted whenever there is a change in the database. The event payload is a `change` object, which has the following properties:
+  * `type` (string: "put" or "del")
+  * `key` (string): the key affected by this change
+  * `value` (any): the new value for the mentioned key
+
+### `emit("new head", cid)`
+
+Whenever the log has a new head. The payload, `cid` is a content identifier (internal to IPFS)
 
 
 ## With Levelup

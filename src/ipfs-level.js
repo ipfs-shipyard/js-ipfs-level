@@ -10,7 +10,6 @@ const series = require('async/series')
 const clone = require('lodash.clonedeep')
 
 const defaultOptions = require('./options')
-const encode = require('./encode')
 const Iterator = require('./iterator')
 const Log = require('./log')
 
@@ -61,15 +60,17 @@ IPFSLevel.prototype = Object.assign(
   EventEmitter.prototype,
   AbstractLeveldown.prototype,
   {
-    _open: function _open (options, _callback) {
+    _open (options, _callback) {
       const callback = () => {
         this._ipfs.id((err, peerInfo) => {
           if (err) {
             _callback(err)
           } else {
-            this._log = new Log(peerInfo.id, this._logDB, this._partition, this._ipfs, this._options)
+            this._ipfsNodeId = peerInfo.id
+            this._log = new Log(this._ipfsNodeId, this._logDB, this._partition, this._ipfs, this._options)
             this._log.on('error', (err) => this.emit('error', err))
             this._log.on('change', this._onLogChange.bind(this))
+            this._log.on('new head', (cid) => this.emit('new head', cid))
 
             this.emit('started')
             _callback()
@@ -88,7 +89,7 @@ IPFSLevel.prototype = Object.assign(
       }
     },
 
-    _close: function _close (callback) {
+    _close (callback) {
       series([
         (callback) => {
           if (this._ipfs && this._ipfs.isOnline()) {
@@ -111,15 +112,17 @@ IPFSLevel.prototype = Object.assign(
       ], callback)
     },
 
-    _put: function (key, _value, options, callback) {
+    _put (key, _value, options, callback) {
       this._onceStarted(() => {
         let value = _value
         if ((typeof value === 'undefined') || value === null) {
           value = ''
+          /* eslint use-isnan: 0 */
         } else if (value === NaN) {
           value = 'NaN'
         }
 
+        /* eslint use-isnan: 0 */
         if (key === NaN) {
           key = 'NaN'
         }
@@ -137,9 +140,10 @@ IPFSLevel.prototype = Object.assign(
       })
     },
 
-    _get: function _get (_key, options, callback) {
+    _get (_key, options, callback) {
       this._onceStarted(() => {
         let key = _key
+        /* eslint use-isnan: 0 */
         if (key === NaN) {
           key = 'NaN'
         }
@@ -158,7 +162,7 @@ IPFSLevel.prototype = Object.assign(
             (result, callback) => callback(null, result.value),
             (data, callback) => {
               if (options.asBuffer && !Buffer.isBuffer(data)) {
-                callback(null, new Buffer(String(data)))
+                callback(null, Buffer.from(String(data)))
               } else {
                 callback(null, data)
               }
@@ -168,13 +172,13 @@ IPFSLevel.prototype = Object.assign(
       })
     },
 
-    _del: function _del (key, options, callback) {
+    _del (key, options, callback) {
       this._onceStarted(() => {
         this._log.del(key, callback)
       })
     },
 
-    _batch: function _batch (array, options, callback) {
+    _batch (array, options, callback) {
       eachSeries(
         array,
         (op, callback) => {
@@ -189,15 +193,15 @@ IPFSLevel.prototype = Object.assign(
         callback)
     },
 
-    _iterator: function _iterator (options) {
+    _iterator (options) {
       return new Iterator(this, this._ipfs, this._logDB, options)
     },
 
-    _started: function _started () {
+    _started () {
       return Boolean(this._log)
     },
 
-    _onceStarted: function _onceStarted (cb) {
+    _onceStarted (cb) {
       if (this._started()) {
         cb()
       } else {
@@ -205,7 +209,7 @@ IPFSLevel.prototype = Object.assign(
       }
     },
 
-    _onLogChange: function _onLogChange (change) {
+    _onLogChange (change) {
       const key = change.key
       const logCID = change.logCID
       waterfall(
@@ -235,6 +239,26 @@ IPFSLevel.prototype = Object.assign(
           }
         }
       )
+    },
+
+    getLatestHeadCID (callback) {
+      this._log.getLatestHeadCID(callback)
+    },
+
+    ipfsNode () {
+      return this._ipfs
+    },
+
+    ipfsNodeId () {
+      return this._ipfsNodeId
+    },
+
+    partition () {
+      return this._partition
+    },
+
+    log () {
+      return this._log
     }
   }
 )

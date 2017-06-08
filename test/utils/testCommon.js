@@ -1,74 +1,79 @@
-var path      = require('path')
-  , fs        = !process.browser && require('fs')
-  , rimraf    = !process.browser && require('rimraf')
+'use strict'
 
-var dbidx = 0
+const path = require('path')
+const fs = !process.browser && require('fs')
+const rimraf = !process.browser && require('rimraf')
 
-  , location = function () {
-      return path.join(__dirname, '_leveldown_test_db_' + dbidx++)
-    }
+let dbidx = 0
 
-  , lastLocation = function () {
-      return path.join(__dirname, '_leveldown_test_db_' + dbidx)
-    }
+function location () {
+  return path.join(__dirname, '_leveldown_test_db_' + dbidx++)
+}
 
-  , cleanup = function (callback) {
-      if (process.browser)
-        return callback()
+function lastLocation () {
+  return path.join(__dirname, '_leveldown_test_db_' + dbidx)
+}
 
-      fs.readdir(__dirname, function (err, list) {
-        if (err) return callback(err)
+function cleanup (callback) {
+  if (process.browser) { return callback() }
 
-        list = list.filter(function (f) {
-          return (/^_leveldown_test_db_/).test(f)
-        })
+  fs.readdir(__dirname, function (err, list) {
+    if (err) return callback(err)
 
-        if (!list.length)
-          return callback()
+    list = list.filter(function (f) {
+      return (/^_leveldown_test_db_/).test(f)
+    })
 
-        var ret = 0
+    if (!list.length) { return callback() }
 
-        list.forEach(function (f) {
-          rimraf(path.join(__dirname, f), function (err) {
-            if (++ret == list.length)
-              callback()
-          })
-        })
+    let ret = 0
+
+    list.forEach(function (f) {
+      rimraf(path.join(__dirname, f), function (err) {
+        if (err) {
+          callback(err)
+          return // early
+        }
+        if (++ret === list.length) {
+          callback()
+        }
       })
-    }
+    })
+  })
+}
 
-  , setUp = function (t) {
-      cleanup(function (err) {
-        t.error(err, 'cleanup returned an error')
-        t.end()
-      })
-    }
+function setUp (t) {
+  cleanup(function (err) {
+    t.error(err, 'cleanup returned an error')
+    t.end()
+  })
+}
 
-  , tearDown = function (t) {
-      setUp(t) // same cleanup!
-    }
+function tearDown (t) {
+  setUp(t) // same cleanup!
+}
 
-  , collectEntries = function (iterator, callback) {
-      var data = []
-        , next = function () {
-            iterator.next(function (err, key, value) {
-              if (err) return callback(err)
-              if (!arguments.length) {
-                callback(err, data)
-              } else {
-                data.push({ key: key, value: String(value) })
-                setTimeout(next, 0)
-              }
-            })
-          }
-      next()
-    }
+function collectEntries (iterator, callback) {
+  const data = []
+  const next = function () {
+    iterator.next(function (err, key, value) {
+      if (err) return callback(err)
+      if (!arguments.length) {
+        callback(err, data)
+      } else {
+        data.push({ key: key, value: String(value) })
+        setTimeout(next, 0)
+      }
+    })
+  }
+  next()
+}
 
 module.exports = {
-    location       : location
-  , cleanup        : cleanup
-  , lastLocation   : lastLocation
-  , setUp          : setUp
-  , tearDown       : tearDown
-  , collectEntries : collectEntries
+  location: location,
+  cleanup: cleanup,
+  lastLocation: lastLocation,
+  setUp: setUp,
+  tearDown: tearDown,
+  collectEntries: collectEntries
 }

@@ -108,7 +108,6 @@ module.exports = class Log extends EventEmitter {
         }
       ],
       callback)
-
   }
 
   setHead (logEntry, callback) {
@@ -130,7 +129,8 @@ module.exports = class Log extends EventEmitter {
         },
         (logCID, callback) => {
           if (this._sync) {
-            this._sync.setNewHead(logCID)
+            this.emit('new head', logCID)
+            this._sync.setNewHead()
           }
           callback()
         }
@@ -144,9 +144,7 @@ module.exports = class Log extends EventEmitter {
       if (err) {
         callback(err)
       } else {
-        if (this._sync) {
-          this._sync.setNewHead(cid)
-        }
+        this.emit('new head', cid)
         callback()
       }
     })
@@ -211,9 +209,7 @@ module.exports = class Log extends EventEmitter {
         },
         (logCID, callback) => {
           this._debug('saved. setting new head to %s', logCID)
-          if (this._sync) {
-            this._sync.setNewHead(logCID)
-          }
+          this.emit('new head', logCID)
           this.emit('change', {
             key: key,
             logCID: logCID

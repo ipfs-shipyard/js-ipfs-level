@@ -57,7 +57,7 @@ module.exports = class Iterator extends AbstractIterator {
           let key = _key
 
           if (typeof key !== 'string') {
-            key = key.toString && _key.toString() || ''
+            key = (key.toString && _key.toString()) || ''
           }
 
           if (key.indexOf(KEY_PREFIX_GT) !== 0) {
@@ -66,7 +66,6 @@ module.exports = class Iterator extends AbstractIterator {
           }
 
           key = key.substring(KEY_PREFIX_GT.length)
-
 
           this._log.get('cid:' + cid, decoding((err, logEntry) => callback(err, key, logEntry)))
         },
@@ -79,10 +78,10 @@ module.exports = class Iterator extends AbstractIterator {
         },
         (key, value, callback) => {
           if (this._options.valueAsBuffer && !Buffer.isBuffer(value)) {
-            value = new Buffer(String(value))
+            value = Buffer.from(String(value))
           }
           if (this._options.keyAsBuffer && !Buffer.isBuffer(key)) {
-            key = new Buffer(String(key))
+            key = Buffer.from(String(key))
           }
           if (this._limit > 0) {
             this._limit--

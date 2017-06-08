@@ -9,3 +9,4 @@ exports.defaults = (defaultOptions) => (partition, options) => {
   const opts = merge({}, defaultOptions, options || {})
   return new IPFSLevel(partition, opts)
 }
+exports.IPFSLevel = IPFSLevel
