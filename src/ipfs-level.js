@@ -15,9 +15,9 @@ const Iterator = require('./iterator')
 const Log = require('./log')
 
 const OPTIONS = {
-  block: {
+  dag: {
     put: {
-      format: 'raw'
+      format: 'dag-cbor'
     }
   }
 }
@@ -130,12 +130,10 @@ IPFSLevel.prototype = Object.assign(
           value = String(value)
         }
 
-        value = new Buffer(JSON.stringify(value))
-
         waterfall(
           [
-            (callback) => this._ipfs.block.put(value, OPTIONS.block.put, callback),
-            (block, callback) => this._log.push(key, block.cid.toBaseEncodedString(), callback)
+            (callback) => this._ipfs.dag.put(value, OPTIONS.dag.put, callback),
+            (cid, callback) => this._log.push(key, cid.toBaseEncodedString(), callback)
           ],
           callback)
       })
@@ -148,7 +146,6 @@ IPFSLevel.prototype = Object.assign(
           key = 'NaN'
         }
 
-
         waterfall(
           [
             (callback) => this._log.getLatest(key, callback),
@@ -159,11 +156,8 @@ IPFSLevel.prototype = Object.assign(
                 callback(null, latestHead.cid)
               }
             },
-            (cid, callback) => this._ipfs.block.get(cid, callback),
-            (result, callback) => callback(null, result.data),
-            (data, callback) => {
-              callback(null, JSON.parse(data.toString()))
-            },
+            (cid, callback) => this._ipfs.dag.get(cid, callback),
+            (result, callback) => callback(null, result.value),
             (data, callback) => {
               if (options.asBuffer && !Buffer.isBuffer(data)) {
                 callback(null, new Buffer(String(data)))

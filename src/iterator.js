@@ -75,9 +75,8 @@ module.exports = class Iterator extends AbstractIterator {
             this._next(done)
             return // early
           }
-          this._ipfs.block.get(logEntry.cid, (err, result) => callback(err, key, result && result.data))
+          this._ipfs.dag.get(logEntry.cid, (err, result) => callback(err, key, result && result.value))
         },
-        (key, value, callback) => callback(null, key, JSON.parse(value)),
         (key, value, callback) => {
           if (this._options.valueAsBuffer && !Buffer.isBuffer(value)) {
             value = new Buffer(String(value))
