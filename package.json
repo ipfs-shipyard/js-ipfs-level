@@ -5,7 +5,10 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "standard",
-    "test": "npm run lint && mocha --timeout=10000"
+    "test": "npm run compile:tests && npm run test:browser",
+    "test:browser": "aegir-test browser --dom",
+    "test:node": "mocha test/leveldown.js --timeout=20000 && mocha test/iterator.js --timeout=20000 && mocha test/sync.js --timeout=20000",
+    "compile:tests": "browserify test/abstract-leveldown.js -o test/abstract-leveldown-generated.spec.js --debug"
   },
   "repository": {
     "type": "git",
@@ -25,15 +28,28 @@
   },
   "homepage": "https://github.com/pgte/ipfs-level#readme",
   "devDependencies": {
+    "aegir": "^11.0.2",
+    "browserify": "^14.4.0",
     "chai": "^3.5.0",
     "dirty-chai": "^1.2.2",
+    "memdown": "^1.2.4",
     "mocha": "^3.4.1",
-    "standard": "^10.0.2"
+    "rimraf": "^2.6.1",
+    "standard": "^10.0.2",
+    "tape": "^4.6.3"
   },
   "dependencies": {
     "abstract-leveldown": "^2.6.1",
     "async": "^2.4.1",
+    "backoff": "^2.5.0",
+    "debug": "^2.6.8",
     "deep-assign": "^2.0.0",
-    "ipfs": "^0.23.1"
+    "hyperdiff": "^2.0.2",
+    "ipfs": "^0.24.0",
+    "lodash.clonedeep": "^4.5.0",
+    "vectorclock": "0.0.0"
+  },
+  "browser": {
+    "./test/utils/create-repo-node.js": "./test/utils/create-repo-browser.js"
   }
 }
