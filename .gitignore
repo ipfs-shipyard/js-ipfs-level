@@ -1,2 +1,3 @@
 node_modules
 crash.log
+test/abstract-leveldown-generated.spec.js
