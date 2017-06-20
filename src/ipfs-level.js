@@ -52,6 +52,9 @@ function IPFSLevel (partition, _options) {
   this._logDB = logDB
   this._options = options
   this._partition = partition
+
+  this._iteratorCount = 0
+  this._garbageCollecting = false
 }
 
 // IPFSLevel inherits from EventEmitter *and* AbstractLeveldown
@@ -112,8 +115,9 @@ IPFSLevel.prototype = Object.assign(
       ], callback)
     },
 
-    _put (key, _value, options, callback) {
+    _put (key, _value, options, _callback) {
       this._onceStarted(() => {
+        const callback = this._maybeGarbageCollecting(_callback)
         let value = _value
         if ((typeof value === 'undefined') || value === null) {
           value = ''
@@ -172,7 +176,8 @@ IPFSLevel.prototype = Object.assign(
       })
     },
 
-    _del (key, options, callback) {
+    _del (key, options, _callback) {
+      const callback = this._maybeGarbageCollecting(_callback)
       this._onceStarted(() => {
         this._log.del(key, callback)
       })
@@ -194,7 +199,42 @@ IPFSLevel.prototype = Object.assign(
     },
 
     _iterator (options) {
-      return new Iterator(this, this._ipfs, this._logDB, options)
+      this._iteratorCount ++
+      const iterator = new Iterator(
+        this, this._ipfs, this._logDB, options, this._onIteratorEnded.bind(this))
+      if (this._garbageCollecting) {
+        this.once('gc done', () => iterator.resume())
+      } else {
+        iterator.resume()
+      }
+      return iterator
+    },
+
+    _onIteratorEnded () {
+      this._iteratorCount --
+      if (!this._iteratorCount) {
+        this._garbageCollect()
+      }
+    },
+
+    _maybeGarbageCollecting (callback) {
+      return (err, result) => {
+        if (!this._iteratorCount) {
+          this._garbageCollect()
+        }
+        callback(err, result)
+      }
+    },
+
+    _garbageCollect () {
+      this._garbageCollecting = true
+      this._log._garbageCollect((err) => {
+        if (err) {
+          console.error('error while garbage collecting:', err)
+        }
+        this._garbageCollecting = false
+        this.emit('gc done')
+      })
     },
 
     _started () {

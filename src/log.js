@@ -2,7 +2,6 @@
 
 const EventEmitter = require('events')
 const waterfall = require('async/waterfall')
-const series = require('async/series')
 const Queue = require('async/queue')
 const vectorclock = require('vectorclock')
 const debug = require('debug')
@@ -24,8 +23,11 @@ module.exports = class Log extends EventEmitter {
     this._log = log
     this._partition = partition
     this._ipfs = ipfs
+    this._options = options
     this._queue = Queue(this._processQueue.bind(this), 1)
     this._debug = debug('ipfs-level:log:' + this._nodeId)
+
+    this._gcKeys = []
   }
 
   // PUBLIC API:
@@ -96,18 +98,29 @@ module.exports = class Log extends EventEmitter {
 
   impose (key, logCID, callback) {
     this._debug('imposing %s = %s', key, logCID)
-    series(
-      [
-        (callback) => this._log.put('key:' + key, logCID, callback),
-        (callback) => {
-          this.emit('change', {
-            key: key,
-            logCID: logCID
-          })
-          callback()
+    waterfall([
+      (callback) => {
+        if (this._options.retainLog) {
+          callback(null, null)
+          return // early
         }
-      ],
-      callback)
+        this._log.get('key:' + key, ignoringNotFoundError(callback))
+      },
+      (previousLogCID, callback) => {
+        if (!this._options.retainLog && previousLogCID) {
+          this._gcKeys.push('cid:' + previousLogCID)
+        }
+        callback()
+      },
+      (callback) => this._log.put('key:' + key, logCID, callback),
+      (callback) => {
+        this.emit('change', {
+          key: key,
+          logCID: logCID
+        })
+        callback()
+      }
+    ])
   }
 
   setHead (logEntry, callback) {
@@ -181,6 +194,19 @@ module.exports = class Log extends EventEmitter {
     this._debug('_save %j, %j', key, cid)
     waterfall(
       [
+        (callback) => {
+          if (this._options.retainLog) {
+            callback(null, null)
+            return // early
+          }
+          this._log.get('key:' + key, ignoringNotFoundError(callback))
+        },
+        (previousLogCID, callback) => {
+          if (!this._options.retainLog && previousLogCID) {
+            this._gcKeys.push('cid:' + previousLogCID)
+          }
+          callback()
+        },
         (callback) => this.getLatestHead(callback),
         (latestHead, latestHeadCID, callback) => {
           this._debug('_save: latest HEAD CID: %s', latestHeadCID)
@@ -218,6 +244,12 @@ module.exports = class Log extends EventEmitter {
         }
       ],
       callback)
+  }
+
+  _garbageCollect (callback) {
+    const keys = this._gcKeys
+    this._gcKeys = []
+    this._log.batch(keys.map((key) => ({ type: 'del', key: key })), callback)
   }
 
   _newLogEntry (key, cid, latest, latestCID) {

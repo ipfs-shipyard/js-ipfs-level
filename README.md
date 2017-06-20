@@ -28,6 +28,7 @@ Arguments:
   * `ipfsOptions` (object). [IPFS options object](https://github.com/ipfs/js-ipfs#advanced-options-when-creating-an-ipfs-node).
   * `log` (LevelDown-compatible database that stores the log)
   * `ipfs` (IPFS object): an IPFS object instance. If you already can provide an IPFS object, pass it in here.
+  * `retainLog` (boolean, defaults to false`): whether or not the log should be retained. Besides wasting storage space, setting this option to `true` provides no direct benefit, except if you want to somehow explore the log database.
 
 # Default arguments
 
@@ -42,6 +43,10 @@ const ipfsLevel = IPFSLevel.defaults({
 ## Events
 
 An IPFSLevel instance emits the following events
+
+### `emit("started")`
+
+When started.
 
 ### `emit("change", change)`
 

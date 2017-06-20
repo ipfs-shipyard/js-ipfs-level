@@ -14,43 +14,54 @@ const KEY_PREFIX_GT = 'key:'
 const KEY_PREFIX_LT = 'key;'
 
 module.exports = class Iterator extends AbstractIterator {
-  constructor (db, ipfs, log, _options) {
+  constructor (db, ipfs, log, _options, onEnd) {
     super(db)
     this._options = _options || {}
     this._log = log
-    this._iterator = log.iterator(logIteratorOptions(this._options))
     this._ipfs = ipfs
+    this._onEnd = onEnd
     this._limit = this._options.limit
+    this._iterator = null
     if (typeof this._limit !== 'number') {
       this._limit = -1
     }
-    this._ended = false
+    this._paused = true
+    this._onResumes = []
+    this._ipfsIteratorEnded = false
+
+    this._iterator = this._log.iterator(logIteratorOptions(this._options))
+  }
+
+  resume () {
+    this._paused = false
+    const onResumes = this._onResumes
+    this._onResumes = []
+    onResumes.forEach((fn) => fn())
   }
 
   _next (done) {
+    if (this._paused) {
+      this._onResumes.push(this._next.bind(this, done))
+      return
+    }
+
     waterfall(
       [
         (callback) => this._iterator.next((err, key, cid) => callback(err, key, cid)),
         (_key, cid, callback) => {
           if (!_key) {
+            this._ipfsIteratorEnded = true
             done()
+            this._onceEnded()
             return // early
           }
 
           if (this._limit === 0) {
-            if (!this._ended) {
-              this._ended = true
-
-              // TODO: because _iterator.end may have been called (???)
-              try {
-                this._iterator.end(() => {})
-              } catch (err) {
-                // TODO: NOTHING??
-              }
-              done()
-            } else {
-              done()
+            if (!this._ipfsIteratorEnded) {
+              this._end()
             }
+            done()
+            this._onceEnded()
             return
           }
 
@@ -93,16 +104,27 @@ module.exports = class Iterator extends AbstractIterator {
   }
 
   _end (callback) {
-    if (!this._ended) {
-      this._ended = true
+    if (!this._ipfsIteratorEnded) {
+      this._ipfsIteratorEnded = true
       try {
         this._iterator.end(callback)
       } catch (err) {
         // TODO: WGAT TO DO HERE?
-        callback()
+        if (callback) {
+          callback()
+        }
       }
     } else {
-      callback()
+      if (callback) {
+        callback()
+      }
+    }
+  }
+
+  _onceEnded () {
+    if (this._onEnd) {
+      this._onEnd()
+      this._onEnd = null
     }
   }
 }
