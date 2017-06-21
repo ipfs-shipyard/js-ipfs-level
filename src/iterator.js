@@ -45,62 +45,68 @@ module.exports = class Iterator extends AbstractIterator {
       return
     }
 
-    waterfall(
-      [
-        (callback) => this._iterator.next((err, key, cid) => callback(err, key, cid)),
-        (_key, cid, callback) => {
-          if (!_key) {
-            this._ipfsIteratorEnded = true
-            done()
-            this._onceEnded()
-            return // early
-          }
+    this._iterator.next((err, _key, cid) => {
+      if (err) {
+        done(err)
+        return // early
+      }
 
-          if (this._limit === 0) {
-            if (!this._ipfsIteratorEnded) {
-              this._end()
+      waterfall(
+        [
+          (callback) => {
+            if (!_key) {
+              this._ipfsIteratorEnded = true
+              done()
+              this._onceEnded()
+              return // early
             }
-            done()
-            this._onceEnded()
-            return
-          }
 
-          let key = _key
+            if (this._limit === 0) {
+              if (!this._ipfsIteratorEnded) {
+                this._end()
+              }
+              done()
+              this._onceEnded()
+              return
+            }
 
-          if (typeof key !== 'string') {
-            key = (key.toString && _key.toString()) || ''
-          }
+            let key = _key
 
-          if (key.indexOf(KEY_PREFIX_GT) !== 0) {
-            this._next(done)
-            return // early
-          }
+            if (typeof key !== 'string') {
+              key = (key.toString && _key.toString()) || ''
+            }
 
-          key = key.substring(KEY_PREFIX_GT.length)
+            if (key.indexOf(KEY_PREFIX_GT) !== 0) {
+              this._next(done)
+              return // early
+            }
 
-          this._log.get('cid:' + cid, decoding((err, logEntry) => callback(err, key, logEntry)))
-        },
-        (key, logEntry, callback) => {
-          if (!logEntry || logEntry.deleted) {
-            this._next(done)
-            return // early
+            key = key.substring(KEY_PREFIX_GT.length)
+
+            this._log.get('cid:' + cid, decoding((err, logEntry) => callback(err, key, logEntry)))
+          },
+          (key, logEntry, callback) => {
+            if (!logEntry || logEntry.deleted) {
+              this._next(done)
+              return // early
+            }
+            this._ipfs.dag.get(logEntry.cid, (err, result) => callback(err, key, result && result.value))
+          },
+          (key, value, callback) => {
+            if (this._options.valueAsBuffer && !Buffer.isBuffer(value)) {
+              value = Buffer.from(String(value))
+            }
+            if (this._options.keyAsBuffer && !Buffer.isBuffer(key)) {
+              key = Buffer.from(String(key))
+            }
+            if (this._limit > 0) {
+              this._limit--
+            }
+            callback(null, key, value)
           }
-          this._ipfs.dag.get(logEntry.cid, (err, result) => callback(err, key, result && result.value))
-        },
-        (key, value, callback) => {
-          if (this._options.valueAsBuffer && !Buffer.isBuffer(value)) {
-            value = Buffer.from(String(value))
-          }
-          if (this._options.keyAsBuffer && !Buffer.isBuffer(key)) {
-            key = Buffer.from(String(key))
-          }
-          if (this._limit > 0) {
-            this._limit--
-          }
-          callback(null, key, value)
-        }
-      ],
-      done)
+        ],
+        done)
+    })
   }
 
   _end (callback) {

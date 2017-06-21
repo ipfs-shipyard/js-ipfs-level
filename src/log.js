@@ -120,7 +120,7 @@ module.exports = class Log extends EventEmitter {
         })
         callback()
       }
-    ])
+    ], callback)
   }
 
   setHead (logEntry, callback) {
