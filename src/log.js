@@ -178,20 +178,18 @@ module.exports = class Log extends EventEmitter {
   }
 
   _push (push, callback) {
-    this._save(push.key, push.cid, [], callback)
+    this.save(push.key, push.cid, [], [], callback)
   }
 
   _del (key, callback) {
-    this._save(key, null, [], callback)
+    this.save(key, null, [], [], callback)
   }
 
   _transaction (fn, callback) {
     fn(callback)
   }
 
-  // INTERNALS:
-
-  _save (key, cid, parentLogCIDs, callback) {
+  save (key, cid, parentLogCIDs, parentVectorClocks, callback) {
     this._debug('_save %j, %j', key, cid)
     waterfall(
       [
@@ -211,7 +209,10 @@ module.exports = class Log extends EventEmitter {
         (callback) => this.getLatestHead(callback),
         (latestHead, latestHeadCID, callback) => {
           this._debug('_save: latest HEAD CID: %s', latestHeadCID)
-          callback(null, this._newLogEntry(key, cid, latestHead, latestHeadCID, parentLogCIDs))
+          callback(
+            null,
+            this._newLogEntry(
+              key, cid, latestHead, latestHeadCID, parentLogCIDs, parentVectorClocks))
         },
         (logEntry, callback) => {
           this._debug('saving log entry %j', logEntry)
@@ -253,7 +254,7 @@ module.exports = class Log extends EventEmitter {
     this._log.batch(keys.map((key) => ({ type: 'del', key: key })), callback)
   }
 
-  _newLogEntry (key, cid, latest, latestCID, parentLogCIDs) {
+  _newLogEntry (key, cid, latest, latestCID, parentLogCIDs, parentVectorClocks) {
     if (!latest) {
       latest = {
         clock: {},
@@ -273,7 +274,13 @@ module.exports = class Log extends EventEmitter {
       latest.cid = cid
     }
 
-    vectorclock.increment(latest, this._nodeId)
+    if (!parentVectorClocks.length) {
+      vectorclock.increment(latest, this._nodeId)
+    } else {
+      console.log('merging', parentVectorClocks)
+      latest.clock = parentVectorClocks.reduce(vectorclock.merge, latest).clock
+      console.log('merged latest: %s', JSON.stringify(latest, null, '\t'))
+    }
 
     return latest
   }
