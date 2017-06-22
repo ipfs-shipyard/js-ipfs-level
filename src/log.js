@@ -5,6 +5,7 @@ const waterfall = require('async/waterfall')
 const Queue = require('async/queue')
 const vectorclock = require('vectorclock')
 const debug = require('debug')
+const uniq = require('lodash.uniq')
 
 const decoding = require('./decoding')
 
@@ -177,11 +178,11 @@ module.exports = class Log extends EventEmitter {
   }
 
   _push (push, callback) {
-    this._save(push.key, push.cid, callback)
+    this._save(push.key, push.cid, [], callback)
   }
 
   _del (key, callback) {
-    this._save(key, null, callback)
+    this._save(key, null, [], callback)
   }
 
   _transaction (fn, callback) {
@@ -190,7 +191,7 @@ module.exports = class Log extends EventEmitter {
 
   // INTERNALS:
 
-  _save (key, cid, callback) {
+  _save (key, cid, parentLogCIDs, callback) {
     this._debug('_save %j, %j', key, cid)
     waterfall(
       [
@@ -210,7 +211,7 @@ module.exports = class Log extends EventEmitter {
         (callback) => this.getLatestHead(callback),
         (latestHead, latestHeadCID, callback) => {
           this._debug('_save: latest HEAD CID: %s', latestHeadCID)
-          callback(null, this._newLogEntry(key, cid, latestHead, latestHeadCID))
+          callback(null, this._newLogEntry(key, cid, latestHead, latestHeadCID, parentLogCIDs))
         },
         (logEntry, callback) => {
           this._debug('saving log entry %j', logEntry)
@@ -252,7 +253,7 @@ module.exports = class Log extends EventEmitter {
     this._log.batch(keys.map((key) => ({ type: 'del', key: key })), callback)
   }
 
-  _newLogEntry (key, cid, latest, latestCID) {
+  _newLogEntry (key, cid, latest, latestCID, parentLogCIDs) {
     if (!latest) {
       latest = {
         clock: {},
@@ -261,6 +262,7 @@ module.exports = class Log extends EventEmitter {
     } else {
       latest.parents = [latestCID]
     }
+    latest.parents = uniq(latest.parents.concat(parentLogCIDs).sort())
 
     latest.key = key
     if (!cid) {
