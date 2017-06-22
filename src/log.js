@@ -277,9 +277,7 @@ module.exports = class Log extends EventEmitter {
     if (!parentVectorClocks.length) {
       vectorclock.increment(latest, this._nodeId)
     } else {
-      console.log('merging', parentVectorClocks)
       latest.clock = parentVectorClocks.reduce(vectorclock.merge, latest).clock
-      console.log('merged latest: %s', JSON.stringify(latest, null, '\t'))
     }
 
     return latest
