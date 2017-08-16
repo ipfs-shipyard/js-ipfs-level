@@ -68,7 +68,7 @@ This default options feature may be useful if you want to pass a constructor int
 ```js
 const LevelUp = require('levelup')
 const Memdown = require('memdown') // any leveldown db will do for caching log entries
-const const IPFSLevel = require('ipfs-level').defaults({
+const IPFSLevel = require('ipfs-level').defaults({
   log: Memdown('some-partition-name') // log database should be scoped to partition
 })
 
