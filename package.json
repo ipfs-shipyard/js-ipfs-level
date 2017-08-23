@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pgte/ipfs-level.git"
+    "url": "git+https://github.com/ipfs-shipyard/ipfs-level.git"
   },
   "keywords": [
     "ipfs",
@@ -21,12 +21,12 @@
     "level",
     "p2p"
   ],
-  "author": "Pedro Teixeira <i@pgte.me>",
+  "author": "Pedro Teixeira <i@ipfs-shipyard.me>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/pgte/ipfs-level/issues"
+    "url": "https://github.com/ipfs-shipyard/ipfs-level/issues"
   },
-  "homepage": "https://github.com/pgte/ipfs-level#readme",
+  "homepage": "https://github.com/ipfs-shipyard/ipfs-level#readme",
   "devDependencies": {
     "aegir": "^11.0.2",
     "browserify": "^14.4.0",
