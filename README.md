@@ -70,9 +70,9 @@ Whenever the log has a new head. The payload, `cid` is a content identifier (int
 This default options feature may be useful if you want to pass a constructor into which you'll have no saying about the options, like on the Levelup constructor:
 
 ```js
-const LevelUp = require('levleup')
+const LevelUp = require('levelup')
 const Memdown = require('memdown') // any leveldown db will do for caching log entries
-const const IPFSLevel = require('ipfs-level').defaults({
+const IPFSLevel = require('ipfs-level').defaults({
   log: Memdown('some-partition-name') // log database should be scoped to partition
 })
 
