@@ -2,7 +2,11 @@
 
 > Leveldown over IPFS
 
-[![Build Status](https://travis-ci.org/pgte/ipfs-level.svg?branch=master)](https://travis-ci.org/pgte/ipfs-level)
+
+[![made by Protocol Labs](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](https://protocol.io)
+[![Freenode](https://img.shields.io/badge/freenode-%23ipfs-blue.svg?style=flat-square)](http://webchat.freenode.net/?channels=%23ipfs)
+
+[![Build Status](https://travis-ci.org/ipfs-shipyard/ipfs-level.svg?branch=master)](https://travis-ci.org/ipfs-shipyard/ipfs-level)
 
 # Install
 
